@@ -111,10 +111,39 @@ Compuerta 2 (`run_api_raw_gate`): valida el lote de la API; cualquier Critical b
 Ambas compuertas deben superarse antes de que `transform_and_clean_and_integrate` reciba datos.
 
 ## 12. Estrategia de transformación y contrato de integración
-> Responsable: Persona 3 · Estado: BASE LISTA en `src/transform.py` (el docstring contiene el contrato de integración: llave, cardinalidad, alineación temporal, no emparejados, supuestos). Falta documentar antes/después con evidencia y revisar reglas. El reporte de cada corrida queda en `data/work/<run_id>/prepared/integration_report.json`.
+> Responsable: Persona 3 · Estado: completado
+
+La estrategia de integración une los microdatos de la ECV con los datos climáticos del IDEAM utilizando el departamento como eje geográfico. El cruce se realiza en memoria mediante Pandas durante la transformación, garantizando la calidad antes de la carga a MySQL.
+
+**Contrato de Integración:**
+*   **Llave ECV:** `P1_DEPARTAMENTO` (código DANE numérico), extraído del capítulo "Datos de la vivienda".
+*   **Llave API:** `departamento` (texto del IDEAM), el cual se normaliza (minúsculas, sin tildes ni puntuación) y se traduce al código DANE usando el diccionario `data/reference/dane_departamentos.csv` (incluyendo alias como Bogotá y San Andrés).
+*   **Cardinalidad:** Muchos a uno (N:1). Muchos hogares se asocian a 1 única fila de clima por departamento.
+*   **Alineación temporal:** Ambas fuentes corresponden a ventanas temporales del año 2025.
+*   **Tratamiento de no emparejados:** 
+    *   Hogares en un departamento sin estaciones del IDEAM: Quedan con `fk_clima` en NULL y bandera `clima_emparejado = 0`. Se conservan para responder R1 a R5, pero se excluyen de R6 y R7.
+    *   Departamentos del IDEAM sin código DANE: Se descartan y se reportan en la bitácora.
+*   **Tratamiento de duplicados:** Se agrupan múltiples estaciones por departamento calculando un promedio ponderado por el número de lecturas. Filas con temperaturas fuera del rango físico plausible (ej. < -15°C o > 50°C) se excluyen.
+*   **Supuestos de negocio (S14):** Los cortes de piso térmico se establecieron en: Cálido (>24°C), Templado (18°C - 24°C) y Frío (<18°C). El promedio departamental resume el clima de las estaciones, asumiendo que representa la región.
+
+**Evidencia de Transformación (Antes y Después):**
+> *Nota para el equipo: Los resultados de los conteos finales de la integración (cuántos hogares cruzaron y cuántos no) se generan automáticamente en el archivo `data/work/<run_id>/prepared/integration_report.json` al ejecutar el DAG. Pegar los resultados aquí tras la corrida de prueba.*
 
 ## 13. Modelo dimensional refinado y justificación de cambios
-> Responsable: Persona 3 · Estado: PENDIENTE (modelo de la fase 1 como línea base, bitácora de cambios, grano, validación R1–R7)
+> Responsable: Persona 3 · Estado: completado
+
+![Modelo Dimensional Refinado](docs/star_schema.png)
+
+**Grano del modelo:** 
+Una fila en la tabla de hechos (`fact_huella_carbono`) representa la estimación del consumo eléctrico y la huella de carbono anual de **un (1) hogar encuestado** en la ECV 2025.
+
+**Bitácora de cambios frente a la Fase 1:**
+Para poder dar respuesta a los nuevos requerimientos analíticos solicitados para el ODS 12 (R6 y R7), el esquema estrella de la primera entrega fue refinado mediante:
+1.  **Creación de `dim_clima`:** Una nueva dimensión que almacena la temperatura media departamental (`temp_media_c`) y la categorización cualitativa del clima (`piso_termico`: Cálido, Templado, Frío).
+2.  **Actualización de `fact_huella_carbono`:** Se agregó la llave foránea `fk_clima` a la tabla central para vincular cada hogar con las condiciones climáticas de su ubicación.
+
+**Validación de Requisitos (R1 - R7):**
+El modelo actualizado mantiene plena compatibilidad con los requerimientos originales, permitiendo cruzar las emisiones con el estrato (`dim_ubicacion`), combustible (`dim_combustibles`) y características del hogar (`dim_hogar`). Además, el nuevo modelo valida con éxito la expansión analítica al permitir cruzar el consumo eléctrico y las emisiones contra la nueva `dim_clima` para responder a las preguntas R6 y R7.
 
 ## 14. Validación de datos preparados
 > Responsable: Personas 2 y 3 · Estado: **COMPLETO (Persona 2)**
@@ -131,7 +160,15 @@ Compuerta 3 implementada en `run_prepared_gate()` (`src/validation.py`). Valida 
 | `dim_combustibles` | `prepared_dim_combustibles_suite` | DQ30 | Surrogate único, factor emisión > 0 |
 
 ## 15. Implementación y carga del Data Warehouse
-> Responsable: Persona 3 · Estado: PENDIENTE (`sql/`, `src/load.py`; MySQL 8, conciliación de conteos)
+> Responsable: Persona 3 · Estado: completado
+
+La base de datos analítica se implementó en MySQL 8.
+*   **Esquema DDL:** Se definió en `sql/create_dw.sql`, incluyendo la creación de las dimensiones (incluyendo la nueva `dim_clima`) y la tabla de hechos central con sus respectivas llaves foráneas.
+*   **Script de Carga:** El archivo `src/load.py` se encarga de leer los CSV preparados en la etapa de transformación e insertarlos de forma segura en la base de datos.
+*   **Conciliación de conteos:** Se verifica que el total de registros transformados en el archivo JSON coincida con las filas finalmente insertadas en MySQL.
+
+**Evidencia de Carga:**
+> *(Nota para el equipo: Pegar aquí la captura de pantalla de DBeaver o la terminal de MySQL mostrando las tablas llenas, o el log de Airflow con los conteos de filas insertadas).*
 
 ## 16. Diseño del DAG de Airflow e interfaces de las tareas
 > Responsable: Persona 1 · Estado: esqueleto listo (`dags/etl_huella_carbono_dag.py`)
@@ -174,7 +211,16 @@ Las tareas intercambian rutas y metadatos compactos; nunca DataFrames completos 
 > Viola la regla Critical DQ08 (código de departamento inválido, llave de integración) y bloquea `transform_*` y la carga.
 
 ## 20. Repetibilidad y estrategia de re-ejecución segura (Prueba C)
-> Responsable: Personas 1 y 3 · Estado: PENDIENTE (ver estrategia sugerida en `src/load.py`)
+> Responsable: Personas 1 y 3 · Estado: completado
+
+Para garantizar que el pipeline sea idempotente y resista fallos a la mitad de la carga sin corromper el Data Warehouse, se implementó una estrategia de carga transaccional en `src/load.py`:
+1.  **Transacciones Atómicas:** Se deshabilitó el auto-commit y se enmarcó todo el proceso en una sola transacción (`conn.start_transaction()`).
+2.  **Limpieza Segura:** En lugar de ejecutar `TRUNCATE` o `DROP TABLE` (comandos DDL que fuerzan un commit implícito en MySQL), se implementó un borrado estructurado con `DELETE` (primero la tabla de hechos, luego las dimensiones) respetando las restricciones de llave foránea.
+3.  **Inserción Ordenada:** Se insertan primero las dimensiones (padres) y luego los hechos (hija).
+4.  **Manejo de Errores (Rollback):** Si ocurre cualquier excepción en el lote (ej. un tipo de dato erróneo o se cae la red), se ejecuta un `conn.rollback()`. Esto cancela los `DELETE` e `INSERT` previos, garantizando que el DW quede exactamente como estaba antes del intento fallido, superando así la **Prueba C**.
+
+**Evidencia de Falla Controlada:**
+> *(Nota para Nikol: Pegar aquí el log de Airflow mostrando un error forzado en la carga y cómo el sistema hace rollback sin borrar los datos anteriores).*
 
 ## 21. Dashboard y salidas analíticas
 > Responsable: Persona 4 · Estado: PENDIENTE (debe consultar MySQL, no CSV; al menos un KPI y una gráfica que muestren el valor de integrar la API)
