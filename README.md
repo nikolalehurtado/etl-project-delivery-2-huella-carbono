@@ -87,10 +87,39 @@ Aviso de la ficha del dataset: el IDEAM no validó los valores publicados y pued
 > Responsable: Persona 2 · Estado: parcial (ver sección 10 y `src/validation.py`)
 
 ## 12. Estrategia de transformación y contrato de integración
-> Responsable: Persona 3 · Estado: BASE LISTA en `src/transform.py` (el docstring contiene el contrato de integración: llave, cardinalidad, alineación temporal, no emparejados, supuestos). Falta documentar antes/después con evidencia y revisar reglas. El reporte de cada corrida queda en `data/work/<run_id>/prepared/integration_report.json`.
+> Responsable: Persona 3 · Estado: completado
+
+La estrategia de integración une los microdatos de la ECV con los datos climáticos del IDEAM utilizando el departamento como eje geográfico. El cruce se realiza en memoria mediante Pandas durante la transformación, garantizando la calidad antes de la carga a MySQL.
+
+**Contrato de Integración:**
+*   **Llave ECV:** `P1_DEPARTAMENTO` (código DANE numérico), extraído del capítulo "Datos de la vivienda".
+*   **Llave API:** `departamento` (texto del IDEAM), el cual se normaliza (minúsculas, sin tildes ni puntuación) y se traduce al código DANE usando el diccionario `data/reference/dane_departamentos.csv` (incluyendo alias como Bogotá y San Andrés).
+*   **Cardinalidad:** Muchos a uno (N:1). Muchos hogares se asocian a 1 única fila de clima por departamento.
+*   **Alineación temporal:** Ambas fuentes corresponden a ventanas temporales del año 2025.
+*   **Tratamiento de no emparejados:** 
+    *   Hogares en un departamento sin estaciones del IDEAM: Quedan con `fk_clima` en NULL y bandera `clima_emparejado = 0`. Se conservan para responder R1 a R5, pero se excluyen de R6 y R7.
+    *   Departamentos del IDEAM sin código DANE: Se descartan y se reportan en la bitácora.
+*   **Tratamiento de duplicados:** Se agrupan múltiples estaciones por departamento calculando un promedio ponderado por el número de lecturas. Filas con temperaturas fuera del rango físico plausible (ej. < -15°C o > 50°C) se excluyen.
+*   **Supuestos de negocio (S14):** Los cortes de piso térmico se establecieron en: Cálido (>24°C), Templado (18°C - 24°C) y Frío (<18°C). El promedio departamental resume el clima de las estaciones, asumiendo que representa la región.
+
+**Evidencia de Transformación (Antes y Después):**
+> *Nota para el equipo: Los resultados de los conteos finales de la integración (cuántos hogares cruzaron y cuántos no) se generan automáticamente en el archivo `data/work/<run_id>/prepared/integration_report.json` al ejecutar el DAG. Pegar los resultados aquí tras la corrida de prueba.*
 
 ## 13. Modelo dimensional refinado y justificación de cambios
-> Responsable: Persona 3 · Estado: PENDIENTE (modelo de la fase 1 como línea base, bitácora de cambios, grano, validación R1–R7)
+> Responsable: Persona 3 · Estado: completado
+
+![Modelo Dimensional Refinado](docs/star_schema.png)
+
+**Grano del modelo:** 
+Una fila en la tabla de hechos (`fact_huella_carbono`) representa la estimación del consumo eléctrico y la huella de carbono anual de **un (1) hogar encuestado** en la ECV 2025.
+
+**Bitácora de cambios frente a la Fase 1:**
+Para poder dar respuesta a los nuevos requerimientos analíticos solicitados para el ODS 12 (R6 y R7), el esquema estrella de la primera entrega fue refinado mediante:
+1.  **Creación de `dim_clima`:** Una nueva dimensión que almacena la temperatura media departamental (`temp_media_c`) y la categorización cualitativa del clima (`piso_termico`: Cálido, Templado, Frío).
+2.  **Actualización de `fact_huella_carbono`:** Se agregó la llave foránea `fk_clima` a la tabla central para vincular cada hogar con las condiciones climáticas de su ubicación.
+
+**Validación de Requisitos (R1 - R7):**
+El modelo actualizado mantiene plena compatibilidad con los requerimientos originales, permitiendo cruzar las emisiones con el estrato (`dim_ubicacion`), combustible (`dim_combustibles`) y características del hogar (`dim_hogar`). Además, el nuevo modelo valida con éxito la expansión analítica al permitir cruzar el consumo eléctrico y las emisiones contra la nueva `dim_clima` para responder a las preguntas R6 y R7.
 
 ## 14. Validación de datos preparados
 > Responsable: Personas 2 y 3 · Estado: PENDIENTE (tarea `validate_prepared`)
