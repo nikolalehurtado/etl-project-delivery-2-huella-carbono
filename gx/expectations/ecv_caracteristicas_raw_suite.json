@@ -1,0 +1,44 @@
+{
+  "name": "ecv_caracteristicas_raw_suite",
+  "expectations": [
+    {
+      "type": "expect_table_columns_to_match_set",
+      "kwargs": {
+        "column_set": [
+          "DIRECTORIO",
+          "SECUENCIA_P",
+          "ORDEN"
+        ],
+        "exact_match": false
+      },
+      "meta": {
+        "rule_id": "DQ09"
+      },
+      "severity": "critical"
+    },
+    {
+      "type": "expect_column_values_to_not_be_null",
+      "kwargs": {
+        "column": "DIRECTORIO"
+      },
+      "meta": {
+        "rule_id": "DQ09"
+      },
+      "severity": "critical"
+    },
+    {
+      "type": "expect_column_values_to_not_be_null",
+      "kwargs": {
+        "column": "SECUENCIA_P"
+      },
+      "meta": {
+        "rule_id": "DQ09"
+      },
+      "severity": "critical"
+    }
+  ],
+  "meta": {
+    "great_expectations_version": "1.24.0"
+  },
+  "notes": null
+}

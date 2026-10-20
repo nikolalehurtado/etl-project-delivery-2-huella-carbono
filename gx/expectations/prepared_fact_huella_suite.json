@@ -1,0 +1,162 @@
+{
+  "name": "prepared_fact_huella_suite",
+  "expectations": [
+    {
+      "type": "expect_column_values_to_be_unique",
+      "kwargs": {
+        "column": "sk_fact"
+      },
+      "meta": {
+        "rule_id": "DQ19"
+      },
+      "severity": "critical"
+    },
+    {
+      "type": "expect_column_values_to_be_unique",
+      "kwargs": {
+        "column": "fk_hogar"
+      },
+      "meta": {
+        "rule_id": "DQ19"
+      },
+      "severity": "critical"
+    },
+    {
+      "type": "expect_column_values_to_not_be_null",
+      "kwargs": {
+        "column": "fk_hogar"
+      },
+      "meta": {
+        "rule_id": "DQ20"
+      },
+      "severity": "critical"
+    },
+    {
+      "type": "expect_column_values_to_not_be_null",
+      "kwargs": {
+        "column": "fk_ubicacion"
+      },
+      "meta": {
+        "rule_id": "DQ20"
+      },
+      "severity": "critical"
+    },
+    {
+      "type": "expect_column_mean_to_be_between",
+      "kwargs": {
+        "column": "clima_emparejado",
+        "min_value": 0.5,
+        "max_value": 1.0
+      },
+      "meta": {
+        "rule_id": "DQ21"
+      },
+      "severity": "warning"
+    },
+    {
+      "type": "expect_column_values_to_be_between",
+      "kwargs": {
+        "column": "kwh_consumidos_estimados",
+        "min_value": 0.0
+      },
+      "meta": {
+        "rule_id": "DQ22"
+      },
+      "severity": "critical"
+    },
+    {
+      "type": "expect_column_values_to_be_between",
+      "kwargs": {
+        "column": "emisiones_energia_kg",
+        "min_value": 0.0
+      },
+      "meta": {
+        "rule_id": "DQ22"
+      },
+      "severity": "critical"
+    },
+    {
+      "type": "expect_column_values_to_be_between",
+      "kwargs": {
+        "column": "emisiones_coccion_kg",
+        "min_value": 0.0
+      },
+      "meta": {
+        "rule_id": "DQ22"
+      },
+      "severity": "critical"
+    },
+    {
+      "type": "expect_column_values_to_be_between",
+      "kwargs": {
+        "column": "huella_total_anual_kg",
+        "min_value": 0.0
+      },
+      "meta": {
+        "rule_id": "DQ22"
+      },
+      "severity": "critical"
+    },
+    {
+      "type": "expect_column_pair_values_a_to_be_greater_than_b",
+      "kwargs": {
+        "column_A": "huella_total_anual_kg",
+        "column_B": "emisiones_energia_kg",
+        "or_equal": true
+      },
+      "meta": {
+        "rule_id": "DQ23"
+      },
+      "severity": "critical"
+    },
+    {
+      "type": "expect_column_pair_values_a_to_be_greater_than_b",
+      "kwargs": {
+        "column_A": "huella_total_anual_kg",
+        "column_B": "emisiones_coccion_kg",
+        "or_equal": true
+      },
+      "meta": {
+        "rule_id": "DQ23"
+      },
+      "severity": "critical"
+    },
+    {
+      "type": "expect_table_row_count_to_be_between",
+      "kwargs": {
+        "min_value": 1
+      },
+      "meta": {
+        "rule_id": "DQ24"
+      },
+      "severity": "critical"
+    },
+    {
+      "type": "expect_table_columns_to_match_set",
+      "kwargs": {
+        "column_set": [
+          "sk_fact",
+          "fk_hogar",
+          "fk_ubicacion",
+          "fk_clima",
+          "fk_combustible_cocina",
+          "fk_tarifa_energia",
+          "clima_emparejado",
+          "kwh_consumidos_estimados",
+          "emisiones_energia_kg",
+          "emisiones_coccion_kg",
+          "huella_total_anual_kg"
+        ],
+        "exact_match": false
+      },
+      "meta": {
+        "rule_id": "DQ25"
+      },
+      "severity": "critical"
+    }
+  ],
+  "meta": {
+    "great_expectations_version": "1.24.0"
+  },
+  "notes": null
+}

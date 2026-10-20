@@ -12,7 +12,16 @@ from pathlib import Path
 # ---------------------------------------------------------------------------
 # Rutas
 # ---------------------------------------------------------------------------
-PROJECT_ROOT = Path(os.getenv("PROJECT_ROOT", "/opt/airflow"))
+def _default_project_root() -> Path:
+    env_root = os.getenv("PROJECT_ROOT")
+    if env_root:
+        return Path(env_root)
+    if os.name != "nt" and Path("/opt/airflow").exists():
+        return Path("/opt/airflow")
+    return Path(__file__).resolve().parent.parent
+
+
+PROJECT_ROOT = _default_project_root()
 
 DATA_DIR = PROJECT_ROOT / "data"
 RAW_DIR = DATA_DIR / "raw"

@@ -1,0 +1,57 @@
+{
+  "name": "prepared_dim_tarifas_suite",
+  "expectations": [
+    {
+      "type": "expect_table_columns_to_match_set",
+      "kwargs": {
+        "column_set": [
+          "sk_tarifa",
+          "estrato_aplica",
+          "costo_promedio_kwh"
+        ],
+        "exact_match": false
+      },
+      "meta": {
+        "rule_id": "DQ29"
+      },
+      "severity": "critical"
+    },
+    {
+      "type": "expect_column_values_to_be_unique",
+      "kwargs": {
+        "column": "sk_tarifa"
+      },
+      "meta": {
+        "rule_id": "DQ29"
+      },
+      "severity": "critical"
+    },
+    {
+      "type": "expect_column_values_to_be_between",
+      "kwargs": {
+        "column": "estrato_aplica",
+        "min_value": 1.0,
+        "max_value": 6.0
+      },
+      "meta": {
+        "rule_id": "DQ29"
+      },
+      "severity": "critical"
+    },
+    {
+      "type": "expect_column_values_to_be_between",
+      "kwargs": {
+        "column": "costo_promedio_kwh",
+        "min_value": 0.001
+      },
+      "meta": {
+        "rule_id": "DQ29"
+      },
+      "severity": "critical"
+    }
+  ],
+  "meta": {
+    "great_expectations_version": "1.24.0"
+  },
+  "notes": null
+}

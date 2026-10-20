@@ -1,0 +1,86 @@
+{
+  "name": "ecv_servicios_raw_suite",
+  "expectations": [
+    {
+      "type": "expect_table_columns_to_match_set",
+      "kwargs": {
+        "column_set": [
+          "DIRECTORIO",
+          "SECUENCIA_P",
+          "P5018",
+          "P5010",
+          "P8536",
+          "P8540",
+          "P3163"
+        ],
+        "exact_match": false
+      },
+      "meta": {
+        "rule_id": "DQ01"
+      },
+      "severity": "critical"
+    },
+    {
+      "type": "expect_column_values_to_not_be_null",
+      "kwargs": {
+        "column": "DIRECTORIO"
+      },
+      "meta": {
+        "rule_id": "DQ02"
+      },
+      "severity": "critical"
+    },
+    {
+      "type": "expect_column_values_to_not_be_null",
+      "kwargs": {
+        "column": "SECUENCIA_P"
+      },
+      "meta": {
+        "rule_id": "DQ02"
+      },
+      "severity": "critical"
+    },
+    {
+      "type": "expect_compound_columns_to_be_unique",
+      "kwargs": {
+        "column_list": [
+          "DIRECTORIO",
+          "SECUENCIA_P"
+        ],
+        "mostly": 0.99
+      },
+      "meta": {
+        "rule_id": "DQ03"
+      },
+      "severity": "warning"
+    },
+    {
+      "type": "expect_column_values_to_not_be_null",
+      "kwargs": {
+        "column": "P5018",
+        "mostly": 0.7
+      },
+      "meta": {
+        "rule_id": "DQ04"
+      },
+      "severity": "warning"
+    },
+    {
+      "type": "expect_column_values_to_be_between",
+      "kwargs": {
+        "column": "P5010",
+        "mostly": 0.999,
+        "min_value": 1.0,
+        "max_value": 6.0
+      },
+      "meta": {
+        "rule_id": "DQ05"
+      },
+      "severity": "warning"
+    }
+  ],
+  "meta": {
+    "great_expectations_version": "1.24.0"
+  },
+  "notes": null
+}

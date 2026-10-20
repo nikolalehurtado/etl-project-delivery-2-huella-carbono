@@ -1,0 +1,57 @@
+{
+  "name": "prepared_dim_ubicacion_suite",
+  "expectations": [
+    {
+      "type": "expect_table_columns_to_match_set",
+      "kwargs": {
+        "column_set": [
+          "sk_ubicacion",
+          "codigo_departamento",
+          "nombre_departamento",
+          "estrato"
+        ],
+        "exact_match": false
+      },
+      "meta": {
+        "rule_id": "DQ27"
+      },
+      "severity": "critical"
+    },
+    {
+      "type": "expect_column_values_to_be_unique",
+      "kwargs": {
+        "column": "sk_ubicacion"
+      },
+      "meta": {
+        "rule_id": "DQ27"
+      },
+      "severity": "critical"
+    },
+    {
+      "type": "expect_column_values_to_be_between",
+      "kwargs": {
+        "column": "estrato",
+        "min_value": 0.0,
+        "max_value": 6.0
+      },
+      "meta": {
+        "rule_id": "DQ27"
+      },
+      "severity": "warning"
+    },
+    {
+      "type": "expect_column_values_to_not_be_null",
+      "kwargs": {
+        "column": "codigo_departamento"
+      },
+      "meta": {
+        "rule_id": "DQ27"
+      },
+      "severity": "warning"
+    }
+  ],
+  "meta": {
+    "great_expectations_version": "1.24.0"
+  },
+  "notes": null
+}

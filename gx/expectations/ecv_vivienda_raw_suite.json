@@ -1,0 +1,80 @@
+{
+  "name": "ecv_vivienda_raw_suite",
+  "expectations": [
+    {
+      "type": "expect_table_columns_to_match_set",
+      "kwargs": {
+        "column_set": [
+          "DIRECTORIO",
+          "SECUENCIA_P",
+          "P1_DEPARTAMENTO",
+          "P1_MUNICIPIO"
+        ],
+        "exact_match": false
+      },
+      "meta": {
+        "rule_id": "DQ06"
+      },
+      "severity": "critical"
+    },
+    {
+      "type": "expect_column_values_to_not_be_null",
+      "kwargs": {
+        "column": "P1_DEPARTAMENTO"
+      },
+      "meta": {
+        "rule_id": "DQ07"
+      },
+      "severity": "critical"
+    },
+    {
+      "type": "expect_column_values_to_be_in_set",
+      "kwargs": {
+        "column": "P1_DEPARTAMENTO",
+        "value_set": [
+          5,
+          8,
+          11,
+          13,
+          15,
+          17,
+          18,
+          19,
+          20,
+          23,
+          25,
+          27,
+          41,
+          44,
+          47,
+          50,
+          52,
+          54,
+          63,
+          66,
+          68,
+          70,
+          73,
+          76,
+          81,
+          85,
+          86,
+          88,
+          91,
+          94,
+          95,
+          97,
+          99
+        ]
+      },
+      "meta": {
+        "rule_id": "DQ08"
+      },
+      "severity": "critical"
+    }
+  ],
+  "meta": {
+    "great_expectations_version": "1.24.0"
+  },
+  "notes": null
+}

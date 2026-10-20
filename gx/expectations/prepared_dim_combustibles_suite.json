@@ -1,0 +1,45 @@
+{
+  "name": "prepared_dim_combustibles_suite",
+  "expectations": [
+    {
+      "type": "expect_table_columns_to_match_set",
+      "kwargs": {
+        "column_set": [
+          "sk_combustible",
+          "tipo_combustible",
+          "factor_emision_kg_tj"
+        ],
+        "exact_match": false
+      },
+      "meta": {
+        "rule_id": "DQ30"
+      },
+      "severity": "critical"
+    },
+    {
+      "type": "expect_column_values_to_be_unique",
+      "kwargs": {
+        "column": "sk_combustible"
+      },
+      "meta": {
+        "rule_id": "DQ30"
+      },
+      "severity": "critical"
+    },
+    {
+      "type": "expect_column_values_to_be_between",
+      "kwargs": {
+        "column": "factor_emision_kg_tj",
+        "min_value": 0.001
+      },
+      "meta": {
+        "rule_id": "DQ30"
+      },
+      "severity": "critical"
+    }
+  ],
+  "meta": {
+    "great_expectations_version": "1.24.0"
+  },
+  "notes": null
+}

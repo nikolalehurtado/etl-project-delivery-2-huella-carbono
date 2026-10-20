@@ -115,12 +115,8 @@ def etl_huella_carbono():
     @task(**NO_RETRY)
     def validate_api_raw(meta):
         """¿Pueden los datos de la API entrar a la transformacion?"""
-        from src.extract import read_raw
-        from src.validation import enforce_policy, run_suite
-        df = read_raw(meta["path"])
-        summary, max_failure, result_file = run_suite(df, "api_ideam_raw_suite", _run_id())
-        decision = enforce_policy(summary, max_failure, gate="validate_api_raw")
-        return {**decision, "result_file": result_file, "rows": len(df)}
+        from src.validation import run_api_raw_gate
+        return run_api_raw_gate(meta, _run_id())
 
     # --------------------------------------------------------------- TRANSFORM
     @task(**NO_RETRY)
@@ -132,11 +128,13 @@ def etl_huella_carbono():
     # ---------------------------------------------------- PREPARED VALIDATION
     @task(**NO_RETRY)
     def validate_prepared(prepared):
-        """¿La transformacion produjo datos aptos para cargar? Una suite por tabla preparada."""
-        raise NotImplementedError(
-            "PENDIENTE (Personas 2 y 3): suites de datos preparados en src/validation.py "
-            "(compuerta 3 del enunciado, seccion 14)."
-        )
+        """Compuerta 3: valida las 6 tablas preparadas (DQ19-DQ30) antes de la carga al DW.
+
+        Una suite GX por tabla. Si CUALQUIERA tiene un Critical, la tarea falla y
+        load_dimensional_dw no se ejecuta (las dependencias de Airflow lo garantizan).
+        """
+        from src.validation import run_prepared_gate
+        return run_prepared_gate(prepared, _run_id())
 
     # -------------------------------------------------------------------- LOAD
     @task(**DB_RETRY)

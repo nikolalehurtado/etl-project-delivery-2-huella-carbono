@@ -1,0 +1,123 @@
+{
+  "name": "prepared_dim_clima_suite",
+  "expectations": [
+    {
+      "type": "expect_table_columns_to_match_set",
+      "kwargs": {
+        "column_set": [
+          "sk_clima",
+          "codigo_departamento",
+          "nombre_departamento",
+          "anio",
+          "temp_media_c",
+          "temp_min_c",
+          "temp_max_c",
+          "n_estaciones",
+          "n_lecturas",
+          "piso_termico"
+        ],
+        "exact_match": false
+      },
+      "meta": {
+        "rule_id": "DQ28"
+      },
+      "severity": "critical"
+    },
+    {
+      "type": "expect_column_values_to_be_unique",
+      "kwargs": {
+        "column": "sk_clima"
+      },
+      "meta": {
+        "rule_id": "DQ28"
+      },
+      "severity": "critical"
+    },
+    {
+      "type": "expect_column_values_to_be_unique",
+      "kwargs": {
+        "column": "codigo_departamento"
+      },
+      "meta": {
+        "rule_id": "DQ28"
+      },
+      "severity": "critical"
+    },
+    {
+      "type": "expect_table_row_count_to_be_between",
+      "kwargs": {
+        "min_value": 1
+      },
+      "meta": {
+        "rule_id": "DQ28"
+      },
+      "severity": "critical"
+    },
+    {
+      "type": "expect_column_values_to_be_between",
+      "kwargs": {
+        "column": "temp_media_c",
+        "min_value": -15.0,
+        "max_value": 50.0
+      },
+      "meta": {
+        "rule_id": "DQ28"
+      },
+      "severity": "critical"
+    },
+    {
+      "type": "expect_column_pair_values_a_to_be_greater_than_b",
+      "kwargs": {
+        "column_A": "temp_media_c",
+        "column_B": "temp_min_c",
+        "or_equal": true
+      },
+      "meta": {
+        "rule_id": "DQ28"
+      },
+      "severity": "critical"
+    },
+    {
+      "type": "expect_column_pair_values_a_to_be_greater_than_b",
+      "kwargs": {
+        "column_A": "temp_max_c",
+        "column_B": "temp_media_c",
+        "or_equal": true
+      },
+      "meta": {
+        "rule_id": "DQ28"
+      },
+      "severity": "critical"
+    },
+    {
+      "type": "expect_column_values_to_be_in_set",
+      "kwargs": {
+        "column": "piso_termico",
+        "value_set": [
+          "C\u00e1lido",
+          "Templado",
+          "Fr\u00edo",
+          "Sin dato"
+        ]
+      },
+      "meta": {
+        "rule_id": "DQ28"
+      },
+      "severity": "warning"
+    },
+    {
+      "type": "expect_table_row_count_to_be_between",
+      "kwargs": {
+        "min_value": 20
+      },
+      "meta": {
+        "rule_id": "DQ28"
+      },
+      "severity": "warning"
+    }
+  ],
+  "meta": {
+    "great_expectations_version": "1.24.0"
+  },
+  "notes": null
+}

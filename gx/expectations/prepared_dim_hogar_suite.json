@@ -1,0 +1,101 @@
+{
+  "name": "prepared_dim_hogar_suite",
+  "expectations": [
+    {
+      "type": "expect_table_columns_to_match_set",
+      "kwargs": {
+        "column_set": [
+          "sk_hogar",
+          "directorio",
+          "secuencia_p",
+          "num_personas",
+          "tiene_vehiculo",
+          "bien_p1077s11",
+          "bien_p1077s12"
+        ],
+        "exact_match": false
+      },
+      "meta": {
+        "rule_id": "DQ26"
+      },
+      "severity": "critical"
+    },
+    {
+      "type": "expect_column_values_to_be_unique",
+      "kwargs": {
+        "column": "sk_hogar"
+      },
+      "meta": {
+        "rule_id": "DQ26"
+      },
+      "severity": "critical"
+    },
+    {
+      "type": "expect_column_values_to_not_be_null",
+      "kwargs": {
+        "column": "sk_hogar"
+      },
+      "meta": {
+        "rule_id": "DQ26"
+      },
+      "severity": "critical"
+    },
+    {
+      "type": "expect_column_values_to_be_between",
+      "kwargs": {
+        "column": "num_personas",
+        "min_value": 1.0
+      },
+      "meta": {
+        "rule_id": "DQ26"
+      },
+      "severity": "critical"
+    },
+    {
+      "type": "expect_column_values_to_be_in_set",
+      "kwargs": {
+        "column": "tiene_vehiculo",
+        "value_set": [
+          "S\u00ed",
+          "No"
+        ]
+      },
+      "meta": {
+        "rule_id": "DQ26"
+      },
+      "severity": "warning"
+    },
+    {
+      "type": "expect_column_values_to_be_in_set",
+      "kwargs": {
+        "column": "bien_p1077s11",
+        "value_set": [
+          "S\u00ed",
+          "No"
+        ]
+      },
+      "meta": {
+        "rule_id": "DQ26"
+      },
+      "severity": "warning"
+    },
+    {
+      "type": "expect_column_values_to_be_in_set",
+      "kwargs": {
+        "column": "bien_p1077s12",
+        "value_set": [
+          "S\u00ed",
+          "No"
+        ]
+      },
+      "meta": {
+        "rule_id": "DQ26"
+      },
+      "severity": "warning"
+    }
+  ],
+  "meta": {
+    "great_expectations_version": "1.24.0"
+  },
+  "notes": null
+}

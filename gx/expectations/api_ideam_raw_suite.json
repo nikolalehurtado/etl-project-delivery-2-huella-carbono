@@ -1,0 +1,128 @@
+{
+  "name": "api_ideam_raw_suite",
+  "expectations": [
+    {
+      "type": "expect_table_columns_to_match_set",
+      "kwargs": {
+        "column_set": [
+          "codigoestacion",
+          "nombreestacion",
+          "departamento",
+          "municipio",
+          "latitud",
+          "longitud",
+          "suma",
+          "n",
+          "minimo",
+          "maximo",
+          "window_start",
+          "window_end"
+        ],
+        "exact_match": false
+      },
+      "meta": {
+        "rule_id": "DQ12"
+      },
+      "severity": "critical"
+    },
+    {
+      "type": "expect_table_row_count_to_be_between",
+      "kwargs": {
+        "min_value": 1
+      },
+      "meta": {
+        "rule_id": "DQ13"
+      },
+      "severity": "critical"
+    },
+    {
+      "type": "expect_column_values_to_not_be_null",
+      "kwargs": {
+        "column": "departamento",
+        "mostly": 0.99
+      },
+      "meta": {
+        "rule_id": "DQ14"
+      },
+      "severity": "critical"
+    },
+    {
+      "type": "expect_column_values_to_be_between",
+      "kwargs": {
+        "column": "minimo",
+        "mostly": 0.995,
+        "min_value": -15.0,
+        "max_value": 50.0
+      },
+      "meta": {
+        "rule_id": "DQ15"
+      },
+      "severity": "critical"
+    },
+    {
+      "type": "expect_column_values_to_be_between",
+      "kwargs": {
+        "column": "maximo",
+        "mostly": 0.995,
+        "min_value": -15.0,
+        "max_value": 50.0
+      },
+      "meta": {
+        "rule_id": "DQ15"
+      },
+      "severity": "critical"
+    },
+    {
+      "type": "expect_column_values_to_match_regex",
+      "kwargs": {
+        "column": "window_start",
+        "regex": "^2025-"
+      },
+      "meta": {
+        "rule_id": "DQ16"
+      },
+      "severity": "critical"
+    },
+    {
+      "type": "expect_column_unique_value_count_to_be_between",
+      "kwargs": {
+        "column": "departamento",
+        "min_value": 20
+      },
+      "meta": {
+        "rule_id": "DQ17"
+      },
+      "severity": "warning"
+    },
+    {
+      "type": "expect_column_values_to_be_between",
+      "kwargs": {
+        "column": "latitud",
+        "mostly": 0.99,
+        "min_value": -5.0,
+        "max_value": 14.0
+      },
+      "meta": {
+        "rule_id": "DQ18"
+      },
+      "severity": "warning"
+    },
+    {
+      "type": "expect_column_values_to_be_between",
+      "kwargs": {
+        "column": "longitud",
+        "mostly": 0.99,
+        "min_value": -82.0,
+        "max_value": -66.0
+      },
+      "meta": {
+        "rule_id": "DQ18"
+      },
+      "severity": "warning"
+    }
+  ],
+  "meta": {
+    "great_expectations_version": "1.24.0"
+  },
+  "notes": null
+}
