@@ -39,7 +39,7 @@ PENDIENTE: resumen de la línea base y modelo dimensional previo (copiar `docs/s
 | R7 | ¿El % de hogares con aire acondicionado o ventilador sube con la temperatura del departamento, y cuánto CO₂ eléctrico extra tienen? | `P1077S11`, `P1077S12` (confirmar significado en el diccionario DANE), huella eléctrica | Temperatura media 2025 por departamento | Departamento (DANE) | % de hogares con equipo vs temperatura; diferencia de kg CO₂ | Departamento |
 
 ## 5. Fuente primaria y fuente API
-> Responsable: Persona 2 · Estado: parcial
+> Responsable: Persona 2 · Estado: **COMPLETO**
 
 **Fuente primaria:** ECV 2025 (DANE), 4 capítulos en CSV (`data/raw/ecv/`): Servicios del hogar, Datos de la vivienda,
 Características y composición del hogar, Condiciones de vida del hogar y tenencia de bienes (se excluye el capítulo "(programas)").
@@ -65,26 +65,50 @@ Aviso de la ficha del dataset: el IDEAM no validó los valores publicados y pued
 > Responsable: Persona 4 · Estado: PENDIENTE (diagrama en `docs/`; debe incluir fuentes, raw por rama, compuertas, transformación, DW, SQL/dashboard y Airflow)
 
 ## 8. Hallazgos de perfilamiento
-> Responsable: Persona 2 · Estado: PENDIENTE (notebooks reproducibles en `notebooks/`, con tablas y su interpretación; ECV y API)
+> Responsable: Persona 2 · Estado: **COMPLETO**
+
+Dos notebooks reproducibles en `notebooks/`:
+
+| Notebook | Contenido | Reglas DQ cubiertas |
+|---|---|---|
+| [`01_perfilamiento_ecv_primaria.ipynb`](notebooks/01_perfilamiento_ecv_primaria.ipynb) | Grano y duplicados, completitud P5018 (~77%), distribución de estrato, contrato columnar de los 4 capítulos, validez P1_DEPARTAMENTO, dominio P1077S15/S11/S12, reformulación R3 | DQ01–DQ11 |
+| [`02_perfilamiento_api_ideam.ipynb`](notebooks/02_perfilamiento_api_ideam.ipynb) | Contrato del endpoint SODA, rango físico de temperatura [-15°C, 50°C], cobertura departamental (≥20 dptos), consistencia temporal (2025), coordenadas dentro de Colombia, normalización de nombres de departamentos, clasificación por piso térmico | DQ12–DQ18 |
+
+**Hallazgos clave (con impacto en el pipeline):**
+- `P5018` completitud ≈77% (umbral DQ04 ≥70% — conservador con 7pp de margen)
+- 212 duplicados en la fase 1 (0.24%) → umbral DQ03 ≥99%; ≤1% = error de carga
+- Estratos 7/8: 12 hogares de 88,432 (0.014%) → umbral DQ05 ≥99.9%
+- `P1077S15` es puramente binaria {1, 2} → sustenta reformulación de R3
+- Nombres de departamentos del IDEAM no estandarizados → tabla `ALIAS_DEPARTAMENTO` en `src/transform.py`
+- Fallas de sensor (DQ15): umbral 99.5% basado en aviso oficial de la ficha IDEAM
 
 ## 9. Riesgos y reglas de calidad
-> Responsable: Persona 2 · Estado: borrador — ver [`docs/quality_rules.md`](docs/quality_rules.md)
+> Responsable: Persona 2 · Estado: **COMPLETO** — ver [`docs/quality_rules.md`](docs/quality_rules.md)
+
+30 reglas de calidad (DQ01–DQ30) distribuidas en 3 compuertas. Cada umbral tiene base empírica,
+contractual, analítica o física documentada. Ningún umbral fue elegido únicamente porque los datos actuales lo cumplen.
 
 ## 10. Diseño de Great Expectations y trazabilidad de reglas
-> Responsable: Persona 2 · Estado: parcial
+> Responsable: Persona 2 · Estado: **COMPLETO**
 
 | Elemento GX | Implementación |
 |---|---|
-| Objeto de datos | DataFrame del lote raw de cada tabla ECV y de la API |
-| Expectation | Una por regla; el ID de la regla va en `meta.rule_id` |
-| Suite | `ecv_servicios_raw_suite`, `ecv_vivienda_raw_suite`, `ecv_caracteristicas_raw_suite`, `ecv_condiciones_raw_suite`, `api_ideam_raw_suite` (exportadas a `gx/expectations/`) |
-| Validation Definition | Batch del DataFrame + suite (`src/validation.py: run_suite`) |
-| Ejecución controlada | Tareas `validate_*` del DAG |
-| Resultado | `gx/validation_results/<run_id>/<suite>.json` (copias de las corridas A y B en `docs/evidence/`) |
-| Respuesta del pipeline | Critical bloquea (la tarea falla); Warning se registra y continúa; Info solo monitoreo |
+| Objeto de datos | DataFrame del lote raw (compuertas 1 y 2) o preparado (compuerta 3) |
+| Expectation | Una por regla; el ID de la regla va en `meta.rule_id`; severidad en `expectation.severity` |
+| Suites (compuerta 1 — raw ECV) | `ecv_servicios_raw_suite` (DQ01–DQ05), `ecv_vivienda_raw_suite` (DQ06–DQ08), `ecv_caracteristicas_raw_suite` (DQ09), `ecv_condiciones_raw_suite` (DQ10–DQ11) |
+| Suites (compuerta 2 — raw API) | `api_ideam_raw_suite` (DQ12–DQ18) |
+| Suites (compuerta 3 — preparados) | `prepared_fact_huella_suite` (DQ19–DQ25), `prepared_dim_hogar_suite` (DQ26), `prepared_dim_ubicacion_suite` (DQ27), `prepared_dim_clima_suite` (DQ28), `prepared_dim_tarifas_suite` (DQ29), `prepared_dim_combustibles_suite` (DQ30) |
+| Validation Definition | Batch del DataFrame + suite (`src/validation.py: run_suite`) — modo `ephemeral` (sin servidor GX) |
+| Ejecución controlada | `validate_primary_raw` → `run_ecv_raw_gate()`; `validate_api_raw` → `run_api_raw_gate()`; `validate_prepared` → `run_prepared_gate()` |
+| Resultado | `gx/validation_results/<run_id>/<suite>.json`; suites exportadas a `gx/expectations/<suite>.json` |
+| Respuesta del pipeline | Critical bloquea (`ValueError`); Warning se registra y continúa; Info solo monitoreo |
 
 ## 11. Diseño de validación raw de ambas fuentes
-> Responsable: Persona 2 · Estado: parcial (ver sección 10 y `src/validation.py`)
+> Responsable: Persona 2 · Estado: **COMPLETO** — ver sección 10 y [`src/validation.py`](src/validation.py)
+
+Compuerta 1 (`run_ecv_raw_gate`): valida las 4 tablas de la ECV en paralelo; cualquier Critical bloquea la transformación.  
+Compuerta 2 (`run_api_raw_gate`): valida el lote de la API; cualquier Critical bloquea la transformación.  
+Ambas compuertas deben superarse antes de que `transform_and_clean_and_integrate` reciba datos.
 
 ## 12. Estrategia de transformación y contrato de integración
 > Responsable: Persona 3 · Estado: BASE LISTA en `src/transform.py` (el docstring contiene el contrato de integración: llave, cardinalidad, alineación temporal, no emparejados, supuestos). Falta documentar antes/después con evidencia y revisar reglas. El reporte de cada corrida queda en `data/work/<run_id>/prepared/integration_report.json`.
@@ -93,7 +117,18 @@ Aviso de la ficha del dataset: el IDEAM no validó los valores publicados y pued
 > Responsable: Persona 3 · Estado: PENDIENTE (modelo de la fase 1 como línea base, bitácora de cambios, grano, validación R1–R7)
 
 ## 14. Validación de datos preparados
-> Responsable: Personas 2 y 3 · Estado: PENDIENTE (tarea `validate_prepared`)
+> Responsable: Personas 2 y 3 · Estado: **COMPLETO (Persona 2)**
+
+Compuerta 3 implementada en `run_prepared_gate()` (`src/validation.py`). Valida 6 tablas:
+
+| Tabla | Suite | Reglas | Checks clave |
+|---|---|---|---|
+| `fact_huella_carbono` | `prepared_fact_huella_suite` | DQ19–DQ25 | Grano único, FKs no nulas, emparejamiento ≥50%, emisiones ≥0, consistencia total |
+| `dim_hogar` | `prepared_dim_hogar_suite` | DQ26 | `sk_hogar` único, `num_personas` ≥1, tenencia en `{Sí, No}` |
+| `dim_ubicacion` | `prepared_dim_ubicacion_suite` | DQ27 | Surrogate único, estrato en [0,6], código departamento no nulo |
+| `dim_clima` | `prepared_dim_clima_suite` | DQ28 | 1 fila/departamento, temperatura [-15,50]°C, consistencia min≤media≤max, piso térmico en dominio, ≥20 dptos |
+| `dim_tarifas` | `prepared_dim_tarifas_suite` | DQ29 | Surrogate único, estratos 1–6, costo > 0 |
+| `dim_combustibles` | `prepared_dim_combustibles_suite` | DQ30 | Surrogate único, factor emisión > 0 |
 
 ## 15. Implementación y carga del Data Warehouse
 > Responsable: Persona 3 · Estado: PENDIENTE (`sql/`, `src/load.py`; MySQL 8, conciliación de conteos)
