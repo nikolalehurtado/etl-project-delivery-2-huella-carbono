@@ -74,7 +74,9 @@ API_WINDOW_DAYS = int(os.getenv("API_WINDOW_DAYS", "7"))
 API_PAGE_LIMIT = 50000                # maximo de filas por peticion en SODA 2.1
 API_TIMEOUT = (15, 120)               # (conexion, lectura) en segundos
 API_ATTEMPTS_PER_WINDOW = 3           # reintentos locales por ventana ante fallas transitorias
-API_MIN_DEPARTMENTS = int(os.getenv("API_MIN_DEPARTMENTS", "20"))
+# Umbral de cobertura (DQ17). 30 de 33: la medicion real de 2025 (3 ventanas) dio 32 departamentos
+# con datos; solo falta Vaupes. Ver docs/supuestos_y_trazabilidad.md, decision D-02.
+API_MIN_DEPARTMENTS = int(os.getenv("API_MIN_DEPARTMENTS", "30"))
 
 # Columnas que devuelve la consulta agregada por estacion y ventana
 API_RAW_COLUMNS = [

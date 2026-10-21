@@ -26,7 +26,7 @@ PENDIENTE: resumen de la línea base y modelo dimensional previo (copiar `docs/s
 |---|---|---|---|
 | R1 | Refinar | Se puede ver por estrato y por piso térmico (columna nueva en `dim_ubicacion`) | Puente con R6; no cambia el cálculo |
 | R2 | Mantener | Ninguno | Los precios fijos de combustible quedan como limitación documentada |
-| R3 | Mantener | Ninguno | Sigue midiendo asociación, no emisiones de transporte |
+| R3 | **Reformular (cambio explícito)** | De "peso de los vehículos en las emisiones del hogar" a **R3'**: comparar la huella por energía y cocina de hogares con y sin vehículo, a igual estrato | La ECV solo informa si hay vehículo (`P1077S15`); no permite calcular sus emisiones. La primera entrega midió otra cosa sin cambiar el requisito. Detalle y fecha en [`docs/supuestos_y_trazabilidad.md`](docs/supuestos_y_trazabilidad.md) |
 | R4 | Mantener | Ninguno | |
 | R5 | Mantener | Ninguno | |
 
@@ -126,6 +126,8 @@ La estrategia de integración une los microdatos de la ECV con los datos climát
 *   **Tratamiento de duplicados:** Se agrupan múltiples estaciones por departamento calculando un promedio ponderado por el número de lecturas. Filas con temperaturas fuera del rango físico plausible (ej. < -15°C o > 50°C) se excluyen.
 *   **Supuestos de negocio (S14):** Los cortes de piso térmico se establecieron en: Cálido (>24°C), Templado (18°C - 24°C) y Frío (<18°C). El promedio departamental resume el clima de las estaciones, asumiendo que representa la región.
 
+*   **Cobertura real de la API y decisión sobre Vaupés (D-02):** la consulta al IDEAM en tres ventanas de 2025 dio **32 de 33 departamentos** ([evidencia](docs/evidence/cobertura_api_ideam_2025.md)). **Vaupés (97) no tiene estaciones con datos**, así que sus 1.509 hogares (≈1,7 %) quedan con `fk_clima` NULL y `clima_emparejado = 0`: se conservan en R1–R5 y se excluyen de R6 y R7. **No se le asigna 0 °C ni la temperatura de otro departamento**, porque eso sería un dato inventado: Vaupés es cálido y un 0 lo clasificaría como "Frío", sesgando R6 y R7. Razonamiento completo en [`docs/supuestos_y_trazabilidad.md`](docs/supuestos_y_trazabilidad.md) (D-02).
+
 **Evidencia de Transformación (Antes y Después):**
 > *Nota para el equipo: Los resultados de los conteos finales de la integración (cuántos hogares cruzaron y cuántos no) se generan automáticamente en el archivo `data/work/<run_id>/prepared/integration_report.json` al ejecutar el DAG. Pegar los resultados aquí tras la corrida de prueba.*
 
@@ -185,8 +187,8 @@ extract_api     -> validate_api_raw --------/
 | extract_api | fechas de `.env` | `api_ideam_raw.csv` + `api_manifest.json` | `run_id` | `APITransientError` / `APIContractError` | reanuda: reutiliza las ventanas ya descargadas |
 | validate_*_raw | ruta del lote raw | resumen de GX + JSON | `run_id` | `ValueError` si hay Critical | idempotente |
 | transform_and_clean_and_integrate | rutas raw | rutas de 6 tablas preparadas + reporte de integración | `run_id` | excepción | reescribe `data/work/<run_id>/prepared/` |
-| validate_prepared | rutas preparadas | resumen de GX | `run_id` | `ValueError` si hay Critical | PENDIENTE |
-| load_dimensional_dw | rutas preparadas | conteos antes/después | `run_id` | excepción | PENDIENTE |
+| validate_prepared | rutas de las 6 tablas preparadas | resumen de GX por tabla | `run_id` | `ValueError` si hay Critical | idempotente |
+| load_dimensional_dw | rutas preparadas | conciliación de conteos + filas en `etl_audit_log` | `run_id` | `LoadReconciliationError` / error de BD | transaccional: DELETE+INSERT+COMMIT; ROLLBACK si falla (prueba C) |
 
 Las tareas intercambian rutas y metadatos compactos; nunca DataFrames completos por XCom.
 
@@ -226,7 +228,7 @@ Para garantizar que el pipeline sea idempotente y resista fallos a la mitad de l
 > Responsable: Persona 4 · Estado: PENDIENTE (debe consultar MySQL, no CSV; al menos un KPI y una gráfica que muestren el valor de integrar la API)
 
 ## 22. Trazabilidad requisito → KPI de extremo a extremo
-> Responsable: Persona 4 · Estado: PENDIENTE
+> Responsable: Persona 4 · Estado: tabla base en [`docs/supuestos_y_trazabilidad.md`](docs/supuestos_y_trazabilidad.md) (sección 2); falta completar consulta, gráfica y evidencia de cada requisito
 
 ## 23. Instrucciones de instalación y ejecución
 
@@ -244,10 +246,11 @@ Para garantizar que el pipeline sea idempotente y resista fallos a la mitad de l
 7. Opcional, antes de correr: `python scripts/verificar_cobertura_api.py` para revisar la cobertura de estaciones del IDEAM.
 
 ## 24. Supuestos y limitaciones
-> Responsable: Persona 4 · Estado: parcial
+> Responsable: Persona 4 · Estado: tabla de supuestos S1–S14 en [`docs/supuestos_y_trazabilidad.md`](docs/supuestos_y_trazabilidad.md); falta la fuente de cada uno y decidir S9 (leña)
 
 - Los kWh de la ECV son estimados desde el pago y la tarifa; no son consumo medido y el pago refleja subsidios.
-- La temperatura se promedia por departamento y oculta diferencias internas (por altitud, por ejemplo).
+- La temperatura se promedia por departamento y oculta diferencias internas (por altitud, por ejemplo). Arauca, Guainía y Guaviare tienen una sola estación del IDEAM; su temperatura depende de un único punto.
+- **Vaupés no tiene datos de temperatura** y queda fuera de R6 y R7 (≈1,7 % de los hogares). Se declara como ausencia (NULL), no como 0 °C (decisión D-02).
 - Con 33 departamentos, la relación temperatura–consumo es una asociación, no una causa.
 - El IDEAM no validó los valores publicados (aviso de la ficha del dataset).
 - Los precios de combustible de cocina siguen siendo fijos (limitación de la primera entrega, no resuelta en esta).

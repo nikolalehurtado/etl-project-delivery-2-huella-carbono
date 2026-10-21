@@ -145,7 +145,7 @@ class TestCompuerta2API(unittest.TestCase):
             "maximo": 26.0,
             "window_start": "2025-06-01T00:00:00",
             "window_end": "2025-06-15T00:00:00",
-        } for i in range(25)])
+        } for i in range(32)])   # 32 departamentos = cobertura real medida en 2025 (umbral DQ17 = 30)
         summary, max_f, _ = run_suite(df, "api_ideam_raw_suite", "t_api_ok")
         self.assertIsNone(max_f)
 

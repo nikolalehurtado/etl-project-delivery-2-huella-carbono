@@ -248,8 +248,8 @@ def _prepared_dim_clima():
         # Piso térmico: dominio {Cálido, Templado, Frío, Sin dato}
         ("DQ28", "warning", E.ExpectColumnValuesToBeInSet(
             column="piso_termico", value_set=["Cálido", "Templado", "Frío", "Sin dato"])),
-        # Al menos 20 departamentos con clima (calibrado con DQ17)
-        ("DQ28", "warning", E.ExpectTableRowCountToBeBetween(min_value=20)),
+        # Al menos API_MIN_DEPARTMENTS departamentos con clima (mismo umbral que DQ17)
+        ("DQ28", "warning", E.ExpectTableRowCountToBeBetween(min_value=config.API_MIN_DEPARTMENTS)),
     ]
 
 
