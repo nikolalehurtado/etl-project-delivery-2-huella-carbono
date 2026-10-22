@@ -162,13 +162,13 @@ def compute(df, d):
                                         p12=("bien_p1077s12", lambda x: 100 * (x == "Sí").mean())).reset_index()
     r7["o"] = r7.piso_termico.map({p: i for i, p in enumerate(PISO_ORDER)})
     r7 = r7.sort_values("o").drop(columns="o")
-    s.append(section("R7", "Hogares con equipos P1077S11 y P1077S12 según piso térmico (API IDEAM)",
+    s.append(section("R7", "Hogares con aire acondicionado y con ventilador según piso térmico (API IDEAM)",
                      "¿Sube la tenencia de estos equipos con la temperatura?",
-                     bars([(f"{r.piso_termico} · P1077S11", r.p11) for r in r7.itertuples()] +
-                          [(f"{r.piso_termico} · P1077S12", r.p12) for r in r7.itertuples()], " %"),
-                     table(r7.rename(columns={"p11": "% con P1077S11", "p12": "% con P1077S12"}),
-                           {"hogares": "{:,.0f}", "% con P1077S11": "{:.1f}", "% con P1077S12": "{:.1f}"}),
-                     "ATENCIÓN: el significado de P1077S11 y P1077S12 (¿aire? ¿ventilador?) aún NO está confirmado en el diccionario DANE."))
+                     bars([(f"{r.piso_termico} · aire acondicionado", r.p11) for r in r7.itertuples()] +
+                          [(f"{r.piso_termico} · ventilador", r.p12) for r in r7.itertuples()], " %"),
+                     table(r7.rename(columns={"p11": "% con aire acondicionado", "p12": "% con ventilador"}),
+                           {"hogares": "{:,.0f}", "% con aire acondicionado": "{:.1f}", "% con ventilador": "{:.1f}"}),
+                     "P1077S11 = aire acondicionado y P1077S12 = ventilador o abanico (diccionario DANE ECV 2025). Asociación, no causalidad."))
 
     api = d["dim_clima"][["nombre_departamento", "temp_media_c", "n_estaciones", "n_lecturas", "piso_termico"]]
     s.append(section("API", "Cobertura de la API del IDEAM",

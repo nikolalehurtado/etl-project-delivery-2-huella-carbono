@@ -161,6 +161,8 @@ ORDER BY
 
 -- -------------------------------------------------------------------------
 -- R7: Tenencia de Equipos de Climatización vs. Temperatura Departamental
+-- (Se usa <> 'No' en lugar de = 'Sí' para no depender de la tilde: la columna solo
+--  admite 'Sí' y 'No' (regla DQ26) y así la consulta funciona igual desde cualquier cliente.)
 -- Pregunta analítica: ¿El porcentaje de hogares con equipos de refrigeración/aire
 -- aumenta con la temperatura del departamento, y cuál es el impacto en su huella eléctrica?
 -- -------------------------------------------------------------------------
@@ -169,8 +171,8 @@ SELECT
     c.temp_media_c,
     c.piso_termico,
     COUNT(f.sk_fact) AS total_hogares,
-    ROUND(100.0 * SUM(CASE WHEN h.bien_p1077s11 = 'Sí' THEN 1 ELSE 0 END) / COUNT(f.sk_fact), 2) AS pct_hogares_equipo_clima_11,
-    ROUND(100.0 * SUM(CASE WHEN h.bien_p1077s12 = 'Sí' THEN 1 ELSE 0 END) / COUNT(f.sk_fact), 2) AS pct_hogares_equipo_clima_12,
+    ROUND(100.0 * SUM(CASE WHEN h.bien_p1077s11 <> 'No' THEN 1 ELSE 0 END) / COUNT(f.sk_fact), 2) AS pct_hogares_aire_acondicionado,
+    ROUND(100.0 * SUM(CASE WHEN h.bien_p1077s12 <> 'No' THEN 1 ELSE 0 END) / COUNT(f.sk_fact), 2) AS pct_hogares_ventilador,
     ROUND(AVG(f.kwh_consumidos_estimados), 2) AS avg_kwh_mensual,
     ROUND(AVG(f.emisiones_energia_kg), 2) AS avg_co2_electrico_kg
 FROM 

@@ -1,0 +1,78 @@
+digraph arquitectura {
+  graph [rankdir=TB, fontname="DejaVu Sans", fontsize=22, labelloc=t, nodesep=0.55, ranksep=0.62,
+         pad=0.4, bgcolor="white", splines=spline, newrank=true,
+         label="Arquitectura del sistema — ETL Huella de Carbono en Hogares Colombianos (ODS 12)\n\n"];
+  node  [fontname="DejaVu Sans", fontsize=15, style="filled,rounded", shape=box, penwidth=1.6, margin="0.22,0.14"];
+  edge  [fontname="DejaVu Sans", fontsize=13, penwidth=1.8, color="#444444", arrowsize=0.9];
+
+  /* ---------------- FUENTES ---------------- */
+  subgraph cluster_fuentes {
+    label="FUENTES"; labeljust=l; fontsize=16; style="rounded,dashed"; color="#7b8794"; fontcolor="#52606d";
+    ecv [label="Fuente primaria\nECV 2025 · DANE\n4 capítulos en CSV (data/raw/ecv/)", fillcolor="#dbe7f5", color="#3b6ea5"];
+    api [label="Fuente API\nTemperatura del aire · IDEAM\ndatos.gov.co (SODA, dataset sbwg-7ju4)", fillcolor="#dbe7f5", color="#3b6ea5"];
+  }
+
+  /* ---------------- AIRFLOW / DAG ---------------- */
+  subgraph cluster_airflow {
+    label="Apache Airflow 3.1.8 · DAG etl_huella_carbono"; labelloc=b; labeljust=l; fontsize=15; style="rounded"; color="#3b6ea5"; fontcolor="#1f3c5c"; bgcolor="#f4f8fc"; penwidth=2;
+
+    ex_ecv [label="extract_primary\nCopia los 4 capítulos tal como llegan\n(sin limpiar)", fillcolor="#cfe8ff", color="#2b6cb0"];
+    ex_api [label="extract_api\n53 ventanas de 7 días, agregadas en el servidor\ncon caché por ventana (reanudable)", fillcolor="#cfe8ff", color="#2b6cb0"];
+
+    raw_ecv [label="RAW ECV\ndata/work/‹run_id›/raw/\necv_*_raw.csv + manifiesto", shape=cylinder, fillcolor="#fff3c4", color="#b7791f"];
+    raw_api [label="RAW API\ndata/work/‹run_id›/raw/\napi_ideam_raw.csv + manifiesto", shape=cylinder, fillcolor="#fff3c4", color="#b7791f"];
+
+    g1 [label="COMPUERTA 1\nvalidate_primary_raw\nGreat Expectations · reglas DQ por capítulo", shape=hexagon, fillcolor="#ffd9b3", color="#c05621", margin="0.15,0.1"];
+    g2 [label="COMPUERTA 2\nvalidate_api_raw\nGreat Expectations · reglas de la API", shape=hexagon, fillcolor="#ffd9b3", color="#c05621", margin="0.15,0.1"];
+
+    tr [label="transform_and_clean_and_integrate\nLimpieza y armonización de la ECV · temperatura por departamento\nIntegración por código DANE (N hogares : 1 clima) · tablas del modelo estrella", fillcolor="#cfe8ff", color="#2b6cb0"];
+
+    prep [label="PREPARADO\ndata/work/‹run_id›/prepared/\n6 tablas CSV + integration_report.json", shape=cylinder, fillcolor="#fff3c4", color="#b7791f"];
+
+    g3 [label="COMPUERTA 3\nvalidate_prepared\nGreat Expectations · una suite por tabla (DQ19–DQ30)", shape=hexagon, fillcolor="#ffd9b3", color="#c05621", margin="0.15,0.1"];
+
+    ld [label="load_dimensional_dw\nUna transacción: DELETE → INSERT dimensiones → INSERT hechos\n→ conciliación de conteos → COMMIT  (cualquier falla: ROLLBACK)", fillcolor="#cfe8ff", color="#2b6cb0"];
+  }
+
+  /* ---------------- DW ---------------- */
+  subgraph cluster_dw {
+    label="DATA WAREHOUSE · MySQL 8"; labeljust=l; fontsize=15; style="rounded"; color="#2f855a"; fontcolor="#22543d"; bgcolor="#f0fff4"; penwidth=2;
+    dw [label="Esquema en estrella · puerto 3307\nfact_huella_carbono   (grano: 1 fila por hogar)\ndim_hogar · dim_ubicacion · dim_clima · dim_combustibles · dim_tarifas\netl_audit_log   (una fila por tabla y por carga)", shape=cylinder, fillcolor="#c6f6d5", color="#2f855a", margin="0.3,0.2"];
+  }
+
+  /* ---------------- CONSUMO ---------------- */
+  subgraph cluster_uso {
+    label="CONSUMO ANALÍTICO"; labeljust=l; fontsize=15; style="rounded"; color="#6b46c1"; fontcolor="#44337a"; bgcolor="#faf5ff"; penwidth=2;
+    sql [label="Consultas SQL y KPI\nR1–R5 (línea base refinada) · R6 y R7 (integran la API)", fillcolor="#e9d8fd", color="#6b46c1"];
+    bi  [label="Dashboard BI (Power BI) conectado al DW\n(no lee CSV ni la API directamente)", fillcolor="#e9d8fd", color="#6b46c1"];
+  }
+
+  /* ---------------- FALLA CONTROLADA ---------------- */
+  falla [label="Regla de las 3 compuertas\nUna falla Critical hace fallar la tarea (rojo);\nlas tareas siguientes no se ejecutan\ny nada llega al Data Warehouse", shape=note, fillcolor="#fed7d7", color="#c53030", fontcolor="#742a2a"];
+
+  orq [label="Qué hace Airflow\n• Orden y dependencias entre tareas\n• Reintentos selectivos: API 3×, MySQL 3×, resto 0\n• Estados y logs de cada tarea\n• Interfaz web en :8080\n• Metadatos en PostgreSQL\n• Todo en contenedores (Docker Compose)", shape=note, fillcolor="#e6f0fa", color="#3b6ea5", fontcolor="#1f3c5c", fontsize=14];
+
+  gx [label="Evidencia de validación\nResultados de Great Expectations por corrida\n(gx/validation_results/ y logs de Airflow)", shape=note, fillcolor="#edf2f7", color="#718096", fontsize=14];
+
+  /* ---------------- FLUJO ---------------- */
+  ecv -> ex_ecv; api -> ex_api;
+  ex_ecv -> raw_ecv; ex_api -> raw_api;
+  raw_ecv -> g1;     raw_api -> g2;
+  g1 -> tr [label=" pasa "]; g2 -> tr [label=" pasa "];
+  tr -> prep -> g3;
+  g3 -> ld [label=" pasa "];
+  ld -> dw [label=" carga aceptada "];
+  dw -> sql [label=" consultas "];
+  sql -> bi;
+
+  /* fallas */
+  g3 -> falla [style=dashed, color="#c53030", label=" Critical", fontcolor="#c53030", constraint=false];
+  ex_api -> orq [style=invis];
+  falla -> gx [style=invis];
+
+  { rank=same; ecv; api; }
+  { rank=same; g1; g2; }
+  { rank=same; g3; falla; }
+  { rank=same; ex_api; orq; }
+  { rank=same; ld; gx; }
+}

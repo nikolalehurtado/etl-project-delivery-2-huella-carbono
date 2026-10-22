@@ -1,2 +1,2 @@
 ﻿id_factor;tipo_energia;factor_emision_kg_co2;unidad_medida;fuente_dato
-1;Electricidad Red (SIN);0.097;kWh;XM
+1;Electricidad Red (SIN);0.220;kWh;UPME 2024 - Factor de emision del SIN para inventarios y huella de carbono

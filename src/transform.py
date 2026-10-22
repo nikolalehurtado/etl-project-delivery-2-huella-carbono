@@ -39,7 +39,7 @@ from src.extract import batch_dir, read_raw
 log = logging.getLogger(__name__)
 
 # --------------------------------------------------------------------------- constantes fase 1
-FACTOR_ELECTRICO_DEFAULT = 0.097      # kg CO2e / kWh (XM)
+FACTOR_ELECTRICO_DEFAULT = 0.220      # kg CO2e / kWh (UPME 2024, factor del SIN para inventarios y huella de carbono; decision D-06)
 PRECIO_GAS_NATURAL_M3 = 1_800         # COP / m3
 PRECIO_GLP_KG = 3_200                 # COP / kg
 NCV_GAS_NATURAL_MJ_M3 = 37.2
@@ -141,8 +141,11 @@ def _calcular_emisiones(df, tarifa_lookup, factor_electrico, factor_comb):
     mensual[m] = (gasto_gas[m] / PRECIO_GAS_NATURAL_M3) * NCV_GAS_NATURAL_MJ_M3 / MJ_POR_TJ * factor_comb.get(3, 56100)
     m = df["ID_COMBUSTIBLE"] == 2                    # GLP
     mensual[m] = (gasto_otro[m] / PRECIO_GLP_KG) * NCV_GLP_MJ_KG / MJ_POR_TJ * factor_comb.get(2, 63100)
-    m = df["ID_COMBUSTIBLE"] == 1                    # lena / carbon de lena
-    mensual[m] = CONSUMO_LENA_KG_MES * NCV_LENA_MJ_KG / MJ_POR_TJ * factor_comb.get(1, 112000)
+    m = df["ID_COMBUSTIBLE"] == 1                    # lena / carbon de lena (biomasa)
+    # La tabla de factores marca la lena como carbono neutra: su CO2 no suma al total neto
+    # (decision D-04). El factor bruto sigue en dim_combustibles solo como referencia.
+    if not config.BIOMASS_CO2_NEUTRAL:
+        mensual[m] = CONSUMO_LENA_KG_MES * NCV_LENA_MJ_KG / MJ_POR_TJ * factor_comb.get(1, 112000)
 
     df["emisiones_coccion_kg"] = (mensual * 12).round(4)
     df["huella_total_anual_kg"] = (df["emisiones_energia_kg"] + df["emisiones_coccion_kg"]).round(4)
@@ -230,7 +233,7 @@ def transform_and_integrate(ecv_meta, api_meta):
         s, dict(zip(dim_tarifas["estrato_aplica"], dim_tarifas["costo_promedio_kwh"])),
         factor_elec, dict(zip(dim_combustibles["sk_combustible"], dim_combustibles["factor_emision_kg_tj"])))
 
-    # -------- dim_hogar (integrantes, vehiculo, equipos P1077S11/S12 — significado por confirmar)
+    # -------- dim_hogar (integrantes, vehiculo, P1077S11 aire acondicionado, P1077S12 ventilador)
     hogar = s[config.HOUSEHOLD_KEYS].copy()
     personas = ecv["caracteristicas"].groupby(config.HOUSEHOLD_KEYS).size().reset_index(name="num_personas")
     cond = ecv["condiciones"].drop_duplicates(subset=config.HOUSEHOLD_KEYS)

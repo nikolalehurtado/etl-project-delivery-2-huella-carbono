@@ -31,8 +31,8 @@ CREATE TABLE IF NOT EXISTS dim_hogar (
     secuencia_p VARCHAR(20) NOT NULL,
     num_personas INT NOT NULL DEFAULT 1,
     tiene_vehiculo VARCHAR(10) NOT NULL DEFAULT 'No',
-    bien_p1077s11 VARCHAR(10) NOT NULL DEFAULT 'No', -- bien P1077S11 (R7): significado por CONFIRMAR en el diccionario DANE
-    bien_p1077s12 VARCHAR(10) NOT NULL DEFAULT 'No', -- bien P1077S12 (R7): significado por CONFIRMAR en el diccionario DANE
+    bien_p1077s11 VARCHAR(10) NOT NULL DEFAULT 'No', -- P1077S11 (R7): aire acondicionado (diccionario DANE ECV 2025)
+    bien_p1077s12 VARCHAR(10) NOT NULL DEFAULT 'No', -- P1077S12 (R7): ventilador o abanico (diccionario DANE ECV 2025)
     INDEX idx_hogar_vehiculo (tiene_vehiculo),
     INDEX idx_hogar_bienes (bien_p1077s11, bien_p1077s12)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

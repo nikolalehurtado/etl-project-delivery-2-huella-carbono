@@ -78,6 +78,14 @@ API_ATTEMPTS_PER_WINDOW = 3           # reintentos locales por ventana ante fall
 # con datos; solo falta Vaupes. Ver docs/supuestos_y_trazabilidad.md, decision D-02.
 API_MIN_DEPARTMENTS = int(os.getenv("API_MIN_DEPARTMENTS", "30"))
 
+# Tratamiento del CO2 de la lena (biomasa). La tabla de factores del proyecto
+# (data/reference/dim_combustibles.csv) la marca como carbono neutra: "No suma al total neto de CO2.
+# Si contabiliza CH4 y N2O". Con True (por defecto) el CO2 de la lena NO se suma a las emisiones de
+# cocina ni a la huella total. CH4 y N2O no se incluyen: no hay factor verificado en el material.
+# Ver docs/supuestos_y_trazabilidad.md, decision D-04. Poner BIOMASS_CO2_NEUTRAL=0 en .env solo para
+# comparar con la primera entrega, que sumaba el CO2 completo de la lena.
+BIOMASS_CO2_NEUTRAL = os.getenv("BIOMASS_CO2_NEUTRAL", "1").strip().lower() not in ("0", "false", "no")
+
 # Columnas que devuelve la consulta agregada por estacion y ventana
 API_RAW_COLUMNS = [
     "codigoestacion", "nombreestacion", "departamento", "municipio", "latitud", "longitud",

@@ -23,7 +23,7 @@ Las reglas están implementadas en `src/validation.py`. Cada `Expectation` lleva
 | DQ08 | ECV vivienda (raw) | `P1_DEPARTAMENTO` | Validez | Código DIVIPOLA válido (33 departamentos según `data/reference/dane_departamentos.csv`) | 100% | Critical | R6, R7 | **Contractual:** código inválido → JOIN incorrecto → KPIs climáticos contaminados |
 | DQ09 | ECV características (raw) | `DIRECTORIO`, `SECUENCIA_P` | Completitud | Sin nulos en las llaves del hogar | 100% | Critical | R5 | Sin llaves, el group-count de personas por hogar es imposible → `dim_hogar.num_personas` nulo |
 | DQ10 | ECV condiciones (raw) | `P1077S15` (carro particular) | Validez | Dominio `{1, 2}` | 100% | Critical | R3 | **Contractual (diccionario DANE):** 1=Sí, 2=No. Cualquier otro código = error de codificación DANE |
-| DQ11 | ECV condiciones (raw) | `P1077S11`, `P1077S12` | Validez | Dominio `{1, 2}` | 100% | Warning | R7 | Warning porque el significado exacto de P1077S11/S12 debe confirmarse en el diccionario DANE ECV 2025 |
+| DQ11 | ECV condiciones (raw) | `P1077S11`, `P1077S12` | Validez | Dominio `{1, 2}` | 100% | Warning | R7 | Warning porque alimenta solo R7 (P1077S11 = aire acondicionado, P1077S12 = ventilador o abanico, según el diccionario DANE ECV 2025); un valor fuera de dominio afecta ese requisito, no todo el análisis |
 
 ---
 

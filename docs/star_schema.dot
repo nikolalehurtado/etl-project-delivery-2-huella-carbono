@@ -1,0 +1,77 @@
+digraph G {
+  graph [rankdir=LR, bgcolor="white", fontname="Helvetica", nodesep=0.5, ranksep=1.3, pad=0.3,
+         label="Modelo dimensional refinado (segunda entrega): esquema estrella con 1 tabla de hechos y 5 dimensiones\nVerde: dimensión nueva alimentada por la API del IDEAM", labelloc=b, fontsize=13];
+  node [shape=plain, fontname="Helvetica", fontsize=11];
+  edge [color="#555555", arrowsize=0.8, fontname="Helvetica", fontsize=10];
+
+  fact [label=<
+   <TABLE BORDER="0" CELLBORDER="1" CELLSPACING="0" CELLPADDING="5" BGCOLOR="#EAF1FB">
+    <TR><TD BGCOLOR="#2F5D9E"><FONT COLOR="white"><B>fact_huella_carbono</B></FONT></TD></TR>
+    <TR><TD ALIGN="LEFT"><B>PK</B> sk_fact</TD></TR>
+    <TR><TD PORT="p_hogar" ALIGN="LEFT"><B>FK</B> fk_hogar</TD></TR>
+    <TR><TD PORT="p_ubic" ALIGN="LEFT"><B>FK</B> fk_ubicacion</TD></TR>
+    <TR><TD PORT="p_clima" ALIGN="LEFT"><B>FK</B> fk_clima (NULL si no hay clima)</TD></TR>
+    <TR><TD PORT="p_comb" ALIGN="LEFT"><B>FK</B> fk_combustible_cocina (NULL)</TD></TR>
+    <TR><TD PORT="p_tarif" ALIGN="LEFT"><B>FK</B> fk_tarifa_energia (NULL)</TD></TR>
+    <TR><TD ALIGN="LEFT">clima_emparejado (0/1)</TD></TR>
+    <TR><TD ALIGN="LEFT">kwh_consumidos_estimados</TD></TR>
+    <TR><TD ALIGN="LEFT">emisiones_energia_kg</TD></TR>
+    <TR><TD ALIGN="LEFT">emisiones_coccion_kg</TD></TR>
+    <TR><TD ALIGN="LEFT">huella_total_anual_kg</TD></TR>
+    <TR><TD ALIGN="LEFT"><I>Grano: un hogar encuestado</I></TD></TR>
+   </TABLE>>];
+
+  hogar [label=<
+   <TABLE BORDER="0" CELLBORDER="1" CELLSPACING="0" CELLPADDING="5" BGCOLOR="#F6F6F6">
+    <TR><TD PORT="h" BGCOLOR="#6B6B6B"><FONT COLOR="white"><B>dim_hogar</B></FONT></TD></TR>
+    <TR><TD ALIGN="LEFT"><B>PK</B> sk_hogar</TD></TR>
+    <TR><TD ALIGN="LEFT">directorio, secuencia_p</TD></TR>
+    <TR><TD ALIGN="LEFT">num_personas</TD></TR>
+    <TR><TD ALIGN="LEFT">tiene_vehiculo (P1077S15)</TD></TR>
+    <TR><TD ALIGN="LEFT">bien_p1077s11 (aire acond.)</TD></TR>
+    <TR><TD ALIGN="LEFT">bien_p1077s12 (ventilador)</TD></TR>
+   </TABLE>>];
+
+  ubic [label=<
+   <TABLE BORDER="0" CELLBORDER="1" CELLSPACING="0" CELLPADDING="5" BGCOLOR="#F6F6F6">
+    <TR><TD PORT="h" BGCOLOR="#6B6B6B"><FONT COLOR="white"><B>dim_ubicacion</B></FONT></TD></TR>
+    <TR><TD ALIGN="LEFT"><B>PK</B> sk_ubicacion</TD></TR>
+    <TR><TD ALIGN="LEFT">codigo_departamento</TD></TR>
+    <TR><TD ALIGN="LEFT">nombre_departamento</TD></TR>
+    <TR><TD ALIGN="LEFT">estrato</TD></TR>
+   </TABLE>>];
+
+  clima [label=<
+   <TABLE BORDER="0" CELLBORDER="1" CELLSPACING="0" CELLPADDING="5" BGCOLOR="#E8F5E9">
+    <TR><TD PORT="h" BGCOLOR="#2E7D32"><FONT COLOR="white"><B>dim_clima (NUEVA, API IDEAM)</B></FONT></TD></TR>
+    <TR><TD ALIGN="LEFT"><B>PK</B> sk_clima</TD></TR>
+    <TR><TD ALIGN="LEFT">codigo_departamento, nombre_departamento</TD></TR>
+    <TR><TD ALIGN="LEFT">anio</TD></TR>
+    <TR><TD ALIGN="LEFT">temp_media_c, temp_min_c, temp_max_c</TD></TR>
+    <TR><TD ALIGN="LEFT">n_estaciones, n_lecturas</TD></TR>
+    <TR><TD ALIGN="LEFT">piso_termico</TD></TR>
+   </TABLE>>];
+
+  comb [label=<
+   <TABLE BORDER="0" CELLBORDER="1" CELLSPACING="0" CELLPADDING="5" BGCOLOR="#F6F6F6">
+    <TR><TD PORT="h" BGCOLOR="#6B6B6B"><FONT COLOR="white"><B>dim_combustibles</B></FONT></TD></TR>
+    <TR><TD ALIGN="LEFT"><B>PK</B> sk_combustible</TD></TR>
+    <TR><TD ALIGN="LEFT">tipo_combustible</TD></TR>
+    <TR><TD ALIGN="LEFT">factor_emision_kg_tj</TD></TR>
+   </TABLE>>];
+
+  tarif [label=<
+   <TABLE BORDER="0" CELLBORDER="1" CELLSPACING="0" CELLPADDING="5" BGCOLOR="#F6F6F6">
+    <TR><TD PORT="h" BGCOLOR="#6B6B6B"><FONT COLOR="white"><B>dim_tarifas</B></FONT></TD></TR>
+    <TR><TD ALIGN="LEFT"><B>PK</B> sk_tarifa</TD></TR>
+    <TR><TD ALIGN="LEFT">estrato_aplica</TD></TR>
+    <TR><TD ALIGN="LEFT">costo_promedio_kwh</TD></TR>
+   </TABLE>>];
+
+  fact:p_hogar:e -> hogar:h:w;
+  fact:p_ubic:e -> ubic:h:w;
+  fact:p_clima:e -> clima:h:w [color="#2E7D32", penwidth=2];
+  fact:p_comb:e -> comb:h:w;
+  fact:p_tarif:e -> tarif:h:w;
+  {rank=same; hogar; ubic; clima; comb; tarif}
+}

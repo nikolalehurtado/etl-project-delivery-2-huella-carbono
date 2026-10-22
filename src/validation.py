@@ -94,7 +94,7 @@ def _ecv_condiciones_raw():
         ("DQ10", "critical", E.ExpectTableColumnsToMatchSet(column_set=spec, exact_match=False)),
         # P1077S15 (carro particular) alimenta R3: dominio 1 = si, 2 = no
         ("DQ10", "critical", E.ExpectColumnValuesToBeInSet(column="P1077S15", value_set=[1, 2])),
-        # P1077S11 y P1077S12 alimentan R7; el significado exacto debe confirmarse en el diccionario DANE
+        # P1077S11 y P1077S12 alimentan R7; P1077S11 = aire acondicionado, P1077S12 = ventilador o abanico (diccionario DANE ECV 2025)
         ("DQ11", "warning", E.ExpectColumnValuesToBeInSet(column="P1077S11", value_set=[1, 2])),
         ("DQ11", "warning", E.ExpectColumnValuesToBeInSet(column="P1077S12", value_set=[1, 2])),
     ]
