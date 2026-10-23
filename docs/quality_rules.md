@@ -13,12 +13,12 @@ Las reglas están implementadas en `src/validation.py`. Cada `Expectation` lleva
 
 | ID | Fuente / capa | Atributo(s) | Dimensión | Regla | Métrica / umbral | Severidad | Req. | Base del umbral |
 |----|---------------|-------------|-----------|-------|------------------|-----------|------|-----------------|
-| DQ01 | ECV servicios (raw) | columnas requeridas | Validez (contrato) | Están todas las columnas requeridas (`DIRECTORIO`, `SECUENCIA_P`, `P5018`, `P5010`, `P8536`, `P8540`, `P3163`) | 100% | Critical | R1–R5 | Contrato de la fuente: si falta una columna el pipeline no puede ejecutarse |
+| DQ01 | ECV servicios (raw) | columnas requeridas | Validez (contrato) | Están todas las columnas requeridas (`DIRECTORIO`, `SECUENCIA_P`, `P5018`, `P5018S1`, `P8536`, `P8540`, `P3163`, `P3163S1`) | 100% | Critical | R1–R5 | Contrato de la fuente: si falta una columna el pipeline no puede ejecutarse |
 | DQ02 | ECV servicios (raw) | `DIRECTORIO`, `SECUENCIA_P` | Completitud | Sin nulos: son las llaves del grano de la tabla de hechos | 100% | Critical | R1–R7 | Sin llaves, el hogar no puede cruzarse con ninguna dimensión ni cargarse al DW |
 | DQ03 | ECV servicios (raw) | `DIRECTORIO` + `SECUENCIA_P` | Unicidad | Un hogar por fila | ≥ 99% | Warning | R1–R7 | **Empírico:** fase 1 eliminó 212 duplicados en 88,432 filas (0.24%). Umbral 99%: >1% indica error de carga del CSV |
 | DQ04 | ECV servicios (raw) | `P5018` (gasto electricidad) | Completitud | Pago de luz informado | ≥ 70% | Warning | R1, R6 | **Analítico:** fase 1 observó ~77%. Con <70%, la imputación domina el KPI eléctrico (R1, R6) |
-| DQ05 | ECV servicios (raw) | `P5010` (estrato) | Validez | Estrato entre 1 y 6 | ≥ 99.9% | Warning | R1, R6 | **Empírico:** fase 1 registró 12 hogares con código 7/8 en 88,432 (0.014%). Estratos 7/8 = no residenciales |
-| DQ06 | ECV vivienda (raw) | columnas requeridas | Validez (contrato) | Están todas las columnas (`DIRECTORIO`, `SECUENCIA_P`, `P1_DEPARTAMENTO`, `P1_MUNICIPIO`) | 100% | Critical | R4, R6, R7 | Contrato de la fuente |
+| DQ05 | ECV vivienda (raw) | `P8520S1A1` (estrato para tarifa) | Validez | (a) Todo valor informado pertenece al diccionario DANE {0–6, 8, 9}; (b) al menos el 85 % de los valores informados es un estrato 1–6 | (a) ≥ 99.9%; (b) ≥ 85% | Warning | R1, R3′, R6 | **(a) Contractual:** diccionario DANE ECV 2025 (0 = factura sin estrato o servicio ilegal; 8 = planta eléctrica; 9 = no sabe y no tiene factura). **(b) Empírico, provisional:** en la ECV 2025 el 91,5 % de los valores informados es 1–6; con menos de 85 % la tarifa de respaldo dominaría la estimación de kWh |
+| DQ06 | ECV vivienda (raw) | columnas requeridas | Validez (contrato) | Están todas las columnas (`DIRECTORIO`, `SECUENCIA_P`, `P1_DEPARTAMENTO`, `P1_MUNICIPIO`, `P8520S1A1`) | 100% | Critical | R4, R6, R7 | Contrato de la fuente |
 | DQ07 | ECV vivienda (raw) | `P1_DEPARTAMENTO` | Completitud | Sin nulos: es la llave de integración ECV–API | 100% | Critical | R6, R7 | Nulo = hogar sin llave de cruce → sin temperatura → R6/R7 imposibles para ese hogar |
 | DQ08 | ECV vivienda (raw) | `P1_DEPARTAMENTO` | Validez | Código DIVIPOLA válido (33 departamentos según `data/reference/dane_departamentos.csv`) | 100% | Critical | R6, R7 | **Contractual:** código inválido → JOIN incorrecto → KPIs climáticos contaminados |
 | DQ09 | ECV características (raw) | `DIRECTORIO`, `SECUENCIA_P` | Completitud | Sin nulos en las llaves del hogar | 100% | Critical | R5 | Sin llaves, el group-count de personas por hogar es imposible → `dim_hogar.num_personas` nulo |
@@ -74,7 +74,7 @@ Están implementadas en `src/validation.py` → `run_prepared_gate()`.
 
 | ID | Atributo(s) | Dimensión | Regla | Métrica / umbral | Severidad | Req. | Base del umbral |
 |----|-------------|-----------|-------|------------------|-----------|------|-----------------|
-| DQ28 | `sk_clima`, `codigo_departamento`, `temp_media_c`, `piso_termico` | Varios | 1 fila por departamento; temp en [-15, 50] °C; consistencia min ≤ media ≤ max; piso en dominio; ≥20 departamentos | 100% / Warning | Critical/Warning | R6, R7 | Post-limpieza: la fase de transformación ya excluye outliers de sensor. Umbral ≥20 dptos = mínimo estadístico |
+| DQ28 | `sk_clima`, `codigo_departamento`, `temp_media_c`, `piso_termico` | Varios | 1 fila por departamento; temp en [-15, 50] °C; consistencia min ≤ media ≤ max; piso en dominio; ≥30 departamentos (mismo umbral que DQ17, decisión D-03) | 100% / Warning | Critical/Warning | R6, R7 | Post-limpieza: la fase de transformación ya excluye outliers de sensor. Umbral ≥20 dptos = mínimo estadístico |
 
 ### dim_tarifas
 

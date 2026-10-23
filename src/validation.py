@@ -62,9 +62,6 @@ def _ecv_servicios_raw():
         # PROVISIONAL: la fase 1 imputo P5018 (77% observado). Con menos de 70% observado la
         # huella electrica dependeria mas de la imputacion que del dato real
         ("DQ04", "warning", E.ExpectColumnValuesToNotBeNull(column="P5018", mostly=0.70)),
-        # Estrato valido 1-6; la fase 1 reclasifico los codigos 7 y 8 a 0 (12 hogares)
-        ("DQ05", "warning", E.ExpectColumnValuesToBeBetween(
-            column="P5010", min_value=1, max_value=6, mostly=0.999)),
     ]
 
 
@@ -76,6 +73,15 @@ def _ecv_vivienda_raw():
         # P1_DEPARTAMENTO es la LLAVE DE INTEGRACION con la API: debe ser un codigo DIVIPOLA valido
         ("DQ08", "critical", E.ExpectColumnValuesToBeInSet(
             column="P1_DEPARTAMENTO", value_set=_dane_codes())),
+        # DQ05 - Estrato para tarifa (P8520S1A1). Codigos del diccionario DANE ECV 2025:
+        # 1-6 estrato; 0 sin estrato en la factura o servicio ilegal; 8 planta electrica propia;
+        # 9 no sabe y no tiene factura. Cualquier otro valor es un codigo fuera del diccionario.
+        ("DQ05", "warning", E.ExpectColumnValuesToBeInSet(
+            column="P8520S1A1", value_set=[0, 1, 2, 3, 4, 5, 6, 8, 9], mostly=0.999)),
+        # DQ05 - PROVISIONAL: en la ECV 2025 ~91,5 % de los valores informados es un estrato 1-6 utilizable.
+        # Por debajo de 85 % la tarifa de respaldo dominaria la estimacion de kWh
+        ("DQ05", "warning", E.ExpectColumnValuesToBeBetween(
+            column="P8520S1A1", min_value=1, max_value=6, mostly=0.85)),
     ]
 
 

@@ -1,6 +1,6 @@
 {
-  "run_id": "manual__2026-10-21T22_11_02.143248_00_00",
-  "generated_at_utc": "2026-10-21T22:16:25.171863+00:00",
+  "run_id": "manual__2026-10-23T04_01_15.889885_00_00",
+  "generated_at_utc": "2026-10-23T04:03:31.772265+00:00",
   "llave": "codigo_departamento (DANE)",
   "cardinalidad": "muchos hogares : 1 clima por departamento",
   "hogares_total": 86848,
@@ -56,10 +56,15 @@
   },
   "transformaciones_ecv": {
     "duplicados_eliminados": 212,
-    "p5018_nulos_imputados": 19969,
-    "p5018_outliers_truncados_p99": 855,
-    "p5018_ceros_imputados_estrato_distinto_1": 123,
-    "estratos_invalidos_reclasificados_a_0": 12,
+    "estratos_sin_estrato_1_6_reclasificados_a_0": 10060,
+    "p5018_codigos_98_99_a_nulo": 233,
+    "p5018_pagos_de_varios_meses_ajustados": 7039,
+    "p3163_codigos_98_99_a_nulo": 208,
+    "p3163_pagos_de_varios_meses_ajustados": 214,
+    "p8540_codigos_98_99_a_nulo": 471,
+    "p5018_nulos_imputados": 20202,
+    "p5018_outliers_truncados_p99": 761,
+    "p5018_ceros_imputados_estrato_distinto_1": 71,
     "hogares_entrada": 87060,
     "hogares_salida": 86848
   }

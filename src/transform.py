@@ -6,6 +6,7 @@ Parte 2 (API): temperatura media por departamento = sum(suma) / sum(n) sobre las
 Parte 3 (integracion): se une por DEPARTAMENTO (codigo DANE) y se agrega dim_clima.
 
 CONTRATO DE INTEGRACION (para el README, seccion 12)
+  Estrato ........... P8520S1A1 (estrato para tarifa), de "Datos de la vivienda".
   Llave ECV ........ P1_DEPARTAMENTO (codigo DANE numerico), de "Datos de la vivienda".
   Llave API ........ departamento (texto del IDEAM) normalizado a minusculas, sin tildes ni
                      puntuacion y traducido al codigo DANE con data/reference/dane_departamentos.csv
@@ -96,10 +97,39 @@ def _deduplicar(df):
     return df.reset_index(drop=True), antes - len(df)
 
 
+def _normalizar_pagos(df):
+    """Deja P5018 (electricidad) y P3163 (gas natural) como pago de UN MES y limpia los codigos 98/99.
+
+    - P5018S1 / P3163S1 = "A cuantos meses corresponde ese pago" (1-12, diccionario DANE ECV 2025).
+      Si el pago cubre varios meses se divide entre ellos; si el dato de meses falta o esta fuera
+      de 1-12 se supone 1 mes.
+    - 98 y 99 en P5018, P3163 y P8540 no son montos: en P8540 el DANE define 98 como "propano pagado
+      con la administracion o el arriendo, valor no separable" y 99 sin definir; en P5018 y P3163 el
+      diccionario no los define, pero el siguiente valor mas bajo es 1.000 (supuesto S17). Se vuelven
+      nulos para no leerlos como $98 o $99.
+    """
+    log = {}
+    for pago, meses, etiqueta in (("P5018", "P5018S1", "p5018"), ("P3163", "P3163S1", "p3163")):
+        df[pago] = pd.to_numeric(df[pago], errors="coerce")
+        cod = df[pago].isin([98, 99])
+        log[f"{etiqueta}_codigos_98_99_a_nulo"] = int(cod.sum())
+        df.loc[cod, pago] = np.nan
+        m = pd.to_numeric(df[meses], errors="coerce")
+        m = m.where(m.between(1, 12), 1).fillna(1)
+        multi = df[pago].notna() & (m > 1)
+        log[f"{etiqueta}_pagos_de_varios_meses_ajustados"] = int(multi.sum())
+        df[pago] = df[pago] / m
+    df["P8540"] = pd.to_numeric(df["P8540"], errors="coerce")
+    cod = df["P8540"].isin([98, 99])
+    log["p8540_codigos_98_99_a_nulo"] = int(cod.sum())
+    df.loc[cod, "P8540"] = np.nan
+    return df, log
+
+
 def _imputar_pago_energia(df):
     nulos = int(df["P5018"].isna().sum())
     if nulos:
-        df["P5018"] = df["P5018"].fillna(df.groupby("P5010")["P5018"].transform("median"))
+        df["P5018"] = df["P5018"].fillna(df.groupby("ESTRATO")["P5018"].transform("median"))
         df["P5018"] = df["P5018"].fillna(df["P5018"].median())
     return df, nulos
 
@@ -112,23 +142,24 @@ def _tratar_outliers(df):
 
 
 def _tratar_ceros(df):
-    mask = (df["P5018"] == 0) & (df["P5010"] != 1)   # estrato 1 con $0 es valido (subsidio)
+    mask = (df["P5018"] == 0) & (df["ESTRATO"] != 1)   # estrato 1 con $0 es valido (subsidio)
     n = int(mask.sum())
     if n:
-        med = df.groupby("P5010")["P5018"].transform("median")
+        med = df.groupby("ESTRATO")["P5018"].transform("median")
         df.loc[mask, "P5018"] = med[mask]
     return df, n
 
 
 def _reclasificar_estrato(df):
-    mask = ~df["P5010"].between(1, 6)
+    # Codigos DANE de P8520S1A1: 1-6 estrato; 0 sin estrato/pirata; 8 planta electrica; 9 no sabe; vacio = sin dato
+    mask = ~df["ESTRATO"].between(1, 6)
     n = int(mask.sum())
-    df.loc[mask, "P5010"] = 0                        # 0 = "No valido / No informa"
+    df["ESTRATO"] = df["ESTRATO"].where(~mask, 0).astype(int)   # 0 = "Sin estrato utilizable"
     return df, n
 
 
 def _calcular_emisiones(df, tarifa_lookup, factor_electrico, factor_comb):
-    tarifa = df["P5010"].map(tarifa_lookup).fillna(min(tarifa_lookup.values()))
+    tarifa = df["ESTRATO"].map(tarifa_lookup).fillna(min(tarifa_lookup.values()))
     df["kwh_consumidos_estimados"] = (df["P5018"].astype(float) / tarifa).round(2).clip(lower=0)
     df["emisiones_energia_kg"] = (df["kwh_consumidos_estimados"] * 12 * factor_electrico).round(4)
 
@@ -210,13 +241,18 @@ def transform_and_integrate(ecv_meta, api_meta):
     # -------- ECV: limpieza (fase 1)
     s = ecv["servicios"].copy()
     s["P5018"] = pd.to_numeric(s["P5018"], errors="coerce")
-    s["P5010"] = pd.to_numeric(s["P5010"], errors="coerce").fillna(1).astype(int)
     filas_in = len(s)
     s, log_t["duplicados_eliminados"] = _deduplicar(s)
+    # Estrato para tarifa = P8520S1A1 de "Datos de la vivienda" (NO es P5010, que son cuartos para dormir)
+    estr = ecv["vivienda"].drop_duplicates(subset=config.HOUSEHOLD_KEYS)[[*config.HOUSEHOLD_KEYS, "P8520S1A1"]]
+    s = s.merge(estr.rename(columns={"P8520S1A1": "ESTRATO"}), on=config.HOUSEHOLD_KEYS, how="left")
+    s["ESTRATO"] = pd.to_numeric(s["ESTRATO"], errors="coerce")
+    s, log_t["estratos_sin_estrato_1_6_reclasificados_a_0"] = _reclasificar_estrato(s)
+    s, log_pagos = _normalizar_pagos(s)
+    log_t.update(log_pagos)
     s, log_t["p5018_nulos_imputados"] = _imputar_pago_energia(s)
     s, log_t["p5018_outliers_truncados_p99"] = _tratar_outliers(s)
     s, log_t["p5018_ceros_imputados_estrato_distinto_1"] = _tratar_ceros(s)
-    s, log_t["estratos_invalidos_reclasificados_a_0"] = _reclasificar_estrato(s)
     log_t["hogares_entrada"], log_t["hogares_salida"] = filas_in, len(s)
 
     # -------- dimensiones de referencia
@@ -255,22 +291,22 @@ def transform_and_integrate(ecv_meta, api_meta):
     s["codigo_departamento"] = pd.to_numeric(s["P1_DEPARTAMENTO"], errors="coerce").fillna(0).astype(int)
 
     # -------- dim_ubicacion (departamento, estrato)
-    dim_ubi = s[["codigo_departamento", "P5010"]].drop_duplicates().sort_values(["codigo_departamento", "P5010"]).reset_index(drop=True)
+    dim_ubi = s[["codigo_departamento", "ESTRATO"]].drop_duplicates().sort_values(["codigo_departamento", "ESTRATO"]).reset_index(drop=True)
     dim_ubi.insert(0, "sk_ubicacion", range(1, len(dim_ubi) + 1))
     nombres = dict(zip(dane["codigo_dane"], dane["departamento"]))
     dim_ubi["nombre_departamento"] = dim_ubi["codigo_departamento"].map(nombres).fillna("Desconocido")
-    dim_ubi = dim_ubi.rename(columns={"P5010": "estrato"})[["sk_ubicacion", "codigo_departamento", "nombre_departamento", "estrato"]]
+    dim_ubi = dim_ubi.rename(columns={"ESTRATO": "estrato"})[["sk_ubicacion", "codigo_departamento", "nombre_departamento", "estrato"]]
 
     # -------- INTEGRACION: dim_clima (API) y llaves de la tabla de hechos
     dim_clima, informe_api = build_dim_clima(api, dane)
 
     s = s.merge(dim_hogar[["directorio", "secuencia_p", "sk_hogar"]],
                 left_on=config.HOUSEHOLD_KEYS, right_on=["directorio", "secuencia_p"], how="left")
-    s = s.merge(dim_ubi.rename(columns={"estrato": "P5010"})[["sk_ubicacion", "codigo_departamento", "P5010"]],
-                on=["codigo_departamento", "P5010"], how="left")
+    s = s.merge(dim_ubi.rename(columns={"estrato": "ESTRATO"})[["sk_ubicacion", "codigo_departamento", "ESTRATO"]],
+                on=["codigo_departamento", "ESTRATO"], how="left")
     s = s.merge(dim_clima[["sk_clima", "codigo_departamento"]], on="codigo_departamento", how="left")
     s["clima_emparejado"] = s["sk_clima"].notna().astype(int)
-    s = s.merge(dim_tarifas[["sk_tarifa", "estrato_aplica"]], left_on="P5010", right_on="estrato_aplica", how="left")
+    s = s.merge(dim_tarifas[["sk_tarifa", "estrato_aplica"]], left_on="ESTRATO", right_on="estrato_aplica", how="left")
 
     fact = pd.DataFrame({
         "fk_hogar": s["sk_hogar"], "fk_ubicacion": s["sk_ubicacion"], "fk_clima": s["sk_clima"],

@@ -8,10 +8,11 @@
           "DIRECTORIO",
           "SECUENCIA_P",
           "P5018",
-          "P5010",
+          "P5018S1",
           "P8536",
           "P8540",
-          "P3163"
+          "P3163",
+          "P3163S1"
         ],
         "exact_match": false
       },
@@ -62,19 +63,6 @@
       },
       "meta": {
         "rule_id": "DQ04"
-      },
-      "severity": "warning"
-    },
-    {
-      "type": "expect_column_values_to_be_between",
-      "kwargs": {
-        "column": "P5010",
-        "mostly": 0.999,
-        "min_value": 1.0,
-        "max_value": 6.0
-      },
-      "meta": {
-        "rule_id": "DQ05"
       },
       "severity": "warning"
     }

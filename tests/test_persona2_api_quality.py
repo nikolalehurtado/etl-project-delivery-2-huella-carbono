@@ -92,10 +92,11 @@ class TestCompuerta1ECV(unittest.TestCase):
             "DIRECTORIO": [1001, 1002],
             "SECUENCIA_P": [1, 1],
             "P5018": [45000, 78000],
-            "P5010": [2, 3],
+            "P5018S1": [1, 1],
             "P8536": [1, 1],
             "P8540": [1, 1],
             "P3163": [1, 1],
+            "P3163S1": [1, 1],
         })
         summary, max_f, _ = run_suite(df, "ecv_servicios_raw_suite", "t1")
         self.assertIsNone(max_f)
@@ -107,23 +108,22 @@ class TestCompuerta1ECV(unittest.TestCase):
             "SECUENCIA_P": [1],
             "P1_DEPARTAMENTO": [999],  # Código DIVIPOLA inexistente
             "P1_MUNICIPIO": [1],
+            "P8520S1A1": [1],
         })
         summary, max_f, _ = run_suite(df, "ecv_vivienda_raw_suite", "t2")
         self.assertEqual(max_f, FailureSeverity.CRITICAL)
         self.assertIn("DQ08", failed_rules(summary, "critical"))
 
-    def test_ecv_servicios_stratum_warning_dq05(self):
-        """Estrato no residencial (ej: 7) viola DQ05 como Warning sin bloquear."""
+    def test_ecv_vivienda_stratum_warning_dq05(self):
+        """Un codigo de estrato fuera del diccionario DANE (ej: 7) viola DQ05 como Warning sin bloquear."""
         df = pd.DataFrame({
             "DIRECTORIO": list(range(100)),
             "SECUENCIA_P": [1] * 100,
-            "P5018": [50000] * 100,
-            "P5010": [1] * 80 + [7] * 20,
-            "P8536": [1] * 100,
-            "P8540": [1] * 100,
-            "P3163": [1] * 100,
+            "P1_DEPARTAMENTO": [76] * 100,
+            "P1_MUNICIPIO": [1] * 100,
+            "P8520S1A1": [1] * 80 + [7] * 20,
         })
-        summary, max_f, _ = run_suite(df, "ecv_servicios_raw_suite", "t3")
+        summary, max_f, _ = run_suite(df, "ecv_vivienda_raw_suite", "t3")
         self.assertEqual(max_f, FailureSeverity.WARNING)
         self.assertIn("DQ05", failed_rules(summary, "warning"))
 

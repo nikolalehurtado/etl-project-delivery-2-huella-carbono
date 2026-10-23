@@ -45,11 +45,11 @@ HOUSEHOLD_KEYS = ["DIRECTORIO", "SECUENCIA_P"]   # grano: un hogar por fila
 ECV_TABLES = {
     "servicios": {
         "keywords": ["servicios"],
-        "columns": [*HOUSEHOLD_KEYS, "P5018", "P5010", "P8536", "P8540", "P3163"],
+        "columns": [*HOUSEHOLD_KEYS, "P5018", "P5018S1", "P8536", "P8540", "P3163", "P3163S1"],
     },
     "vivienda": {
         "keywords": ["vivienda"],
-        "columns": [*HOUSEHOLD_KEYS, "P1_DEPARTAMENTO", "P1_MUNICIPIO"],
+        "columns": [*HOUSEHOLD_KEYS, "P1_DEPARTAMENTO", "P1_MUNICIPIO", "P8520S1A1"],   # P8520S1A1 = estrato para tarifa de energia
     },
     "caracteristicas": {
         "keywords": ["caracter"],

@@ -327,7 +327,7 @@ def build_pdf():
             '• En el <b>Notebook 01 (ECV Primaria)</b> identificamos que el grano de hogares tiene un 0.24% de duplicados históricos (212 de 88 mil filas), '
             'por lo cual fijamos la regla de unicidad en ≥ 99%. Validamos que el pago de energía `P5018` tiene una completitud observada del 77%; '
             'establecimos el umbral en ≥ 70%, porque si cae de ahí, la imputación dominaría los cálculos de huella eléctrica. '
-            'También descubrimos 12 hogares con estrato 7 y 8, los cuales reclasificamos.<br/><br/>'
+            'También verificamos en el diccionario del DANE que el estrato está en `P8520S1A1` (Datos de la vivienda) y no en `P5010`, que son cuartos para dormir; sus códigos 0, 8 y 9 (11,6 % de los hogares) los reclasificamos a estrato 0.<br/><br/>'
             '• En el <b>Notebook 02 (API IDEAM)</b> confirmamos que la propia ficha técnica advierte de lecturas erróneas por fallas de sensores. '
             'Encontramos lecturas anómalas de -99°C. Por eso definimos que al menos el 99.5% de las lecturas debe estar dentro del rango físico plausible de Colombia '
             '(-15°C a 50°C). Asimismo, comprobamos que más de 20 departamentos tienen estaciones activas en 2025, garantizando suficiente significancia estadística para R6 y R7."',
@@ -458,7 +458,7 @@ def build_pdf():
             Paragraph("<i>¿Qué diferencia hay entre Critical y Warning en su compuerta?</i>", body_style),
             Paragraph(
                 "Critical lanza una excepción (`ValueError`) que bloquea las tareas downstream de Airflow. Warning se registra en el log y en el reporte JSON "
-                "de GX, pero permite continuar porque el negocio tolera anomalías menores (como estratos atípicos).",
+                "de GX, pero permite continuar porque el negocio tolera anomalías menores (como códigos de estrato fuera del diccionario).",
                 body_style,
             ),
         ],

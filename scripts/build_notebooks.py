@@ -76,8 +76,8 @@ def make_nb01():
         "HH_KEYS = ['DIRECTORIO', 'SECUENCIA_P']\n",
         "\n",
         "ECV_TABLES = {\n",
-        "    'servicios':       {'keywords': ['servicios'],               'columns': [*HH_KEYS, 'P5018', 'P5010', 'P8536', 'P8540', 'P3163']},\n",
-        "    'vivienda':        {'keywords': ['vivienda'],                'columns': [*HH_KEYS, 'P1_DEPARTAMENTO', 'P1_MUNICIPIO']},\n",
+        "    'servicios':       {'keywords': ['servicios'],               'columns': [*HH_KEYS, 'P5018', 'P5018S1', 'P8536', 'P8540', 'P3163', 'P3163S1']},\n",
+        "    'vivienda':        {'keywords': ['vivienda'],                'columns': [*HH_KEYS, 'P1_DEPARTAMENTO', 'P1_MUNICIPIO', 'P8520S1A1']},\n",
         "    'caracteristicas': {'keywords': ['caracter'],                'columns': [*HH_KEYS, 'ORDEN']},\n",
         "    'condiciones':     {'keywords': ['condiciones', 'tenencia'], 'exclude': ['programa'],\n",
         "                        'columns': [*HH_KEYS, 'P1077S15', 'P1077S11', 'P1077S12']},\n",
@@ -123,7 +123,7 @@ def make_nb01():
     cells.append(md([
         "---\n",
         "## 1. Capítulo «Servicios del Hogar»\n",
-        "Variables: `P5018` (gasto electricidad COP/mes), `P5010` (estrato), `P8536/P8540/P3163` (cocción).\n",
+        "Variables: `P5018` (pago del mes pasado por electricidad, COP), `P8536` (energía o combustible principal para cocinar), `P8540` (pago del mes pasado en combustible para cocinar), `P3163` (pago del mes pasado por gas natural); `P5018S1` y `P3163S1` (a cuántos meses corresponde ese pago, 1–12). El **estrato** no está en este capítulo: viene de «Datos de la vivienda» (`P8520S1A1`, sección 2.1). Ojo: `P5010` de este capítulo es el número de cuartos para dormir, no el estrato.\n",
     ]))
     cells.append(code([
         "df_serv, path_serv = load_chapter('servicios')\n",
@@ -174,6 +174,8 @@ def make_nb01():
         "- **Umbral 70 %:** con <70 % de datos observados, la huella eléctrica dependería más de la imputación que del dato real, haciendo el KPI poco confiable para R1 y R6.\n",
         "- **Decisión de pipeline:** imputación por mediana de estrato (determinista); ceros de estratos 2–6 se reemplazan por la mediana del estrato.\n",
         "- **Outliers:** valores >P₉₉ corresponden a cobros comerciales o errores de digitación → truncar.\n",
+        "- **Pagos de varios meses:** `P5018S1` indica a cuántos meses corresponde el pago; en la ECV 2025 el 10,6 % de los pagos informados cubre 2 meses o más. El pipeline divide el pago entre esos meses (decisión D-08).\n",
+        "- **Códigos 98 y 99:** no son montos (en `P8540` el DANE define 98 como propano pagado con la administración o el arriendo). Se vuelven nulos (supuesto S17).\n",
     ]))
     cells.append(code([
         "if df_serv is not None:\n",
@@ -197,29 +199,6 @@ def make_nb01():
         "else:\n",
         "    print('Sin datos reales. Fase 1: ~77.4% completitud. Umbral DQ04 ≥70% justificado.')\n",
         "    print('P99 ≈ 350,000 COP/mes. Outliers = cobros no residenciales o errores de captura.')\n",
-    ]))
-
-    cells.append(md([
-        "### 1.3 Estrato `P5010` — DQ05 (Warning ≥ 99.9 %)\n",
-        "\n",
-        "Colombia define 6 estratos residenciales (1–6). Códigos 7 y 8 corresponden a propiedades no estratificadas (<0.02 % en F1).  \n",
-        "**Umbral 99.9 %:** base en la frecuencia histórica observada (12 casos en 88,432 filas).  \n",
-        "**Decisión:** reclasificar a 0 (\"No válido/No informa\"). Tarifa fallback = estrato 1.\n",
-    ]))
-    cells.append(code([
-        "if df_serv is not None:\n",
-        "    df_serv['P5010'] = pd.to_numeric(df_serv['P5010'], errors='coerce')\n",
-        "    dist_e = df_serv['P5010'].value_counts(dropna=False).sort_index()\n",
-        "    n_inv   = int((~df_serv['P5010'].between(1, 6)).sum())\n",
-        "    pct_val = df_serv['P5010'].between(1, 6).mean() * 100\n",
-        "\n",
-        "    print('Distribución de P5010 (estrato):')\n",
-        "    print(dist_e.to_string())\n",
-        "    print(f'\\n  Fuera de [1,6]: {n_inv}  ({100 - pct_val:.4f}%)')\n",
-        "    print(f'  DQ05 ≥99.9%:   {\"PASA\" if pct_val >= 99.9 else \"FALLA\"}')\n",
-        "    print('  Decisión: reclasificar 7/8 → 0; tarifa fallback = estrato 1 (más bajo).')\n",
-        "else:\n",
-        "    print('Sin datos reales. Fase 1: 12 de 88,432 con código 7/8 (0.0136%). DQ05 ≥99.9% justificado.')\n",
     ]))
 
     # ── 2. Vivienda ──────────────────────────────────────────────
@@ -255,6 +234,29 @@ def make_nb01():
         "else:\n",
         "    print('Sin datos reales. P1_DEPARTAMENTO: 100% completo esperado (campo obligatorio DANE).')\n",
         "    print('DQ08: todos los códigos dentro del catálogo DIVIPOLA (33 departamentos).')\n",
+    ]))
+
+    cells.append(md([
+        "### 2.1 Estrato para tarifa `P8520S1A1` — DQ05 (Warning)\n",
+        "\n",
+        "Diccionario DANE ECV 2025 (F1, «Estrato para tarifa»): 1–6 = estrato; **0** = la factura no trae estrato o el servicio es ilegal; **8** = la vivienda tiene planta eléctrica; **9** = no sabe el estrato y no tiene factura.  \n",
+        "**Regla DQ05 (dos controles):** (a) todo valor informado debe pertenecer al diccionario {0–6, 8, 9} (≥ 99.9 %); (b) al menos 85 % de los valores informados debe ser un estrato 1–6 utilizable (umbral provisional; con menos, la tarifa de respaldo dominaría la estimación de kWh).  \n",
+        "**Decisión:** los códigos 0, 8, 9 y los vacíos se reclasifican a estrato 0 («sin estrato utilizable») y reciben la tarifa del estrato 1 como respaldo (supuesto S10).\n",
+    ]))
+    cells.append(code([
+        "if df_viv is not None:\n",
+        "    df_viv['P8520S1A1'] = pd.to_numeric(df_viv['P8520S1A1'], errors='coerce')\n",
+        "    dist_e = df_viv['P8520S1A1'].value_counts(dropna=False).sort_index()\n",
+        "    informados = df_viv['P8520S1A1'].dropna()\n",
+        "    pct_dic = informados.isin([0, 1, 2, 3, 4, 5, 6, 8, 9]).mean() * 100\n",
+        "    pct_1a6 = informados.between(1, 6).mean() * 100\n",
+        "    print('Distribución de P8520S1A1 (estrato para tarifa):')\n",
+        "    print(dist_e.to_string())\n",
+        "    print(f'\\n  Dentro del diccionario DANE: {pct_dic:.3f}%  → {\"PASA\" if pct_dic >= 99.9 else \"FALLA\"} (≥99.9%)')\n",
+        "    print(f'  Estrato 1–6 utilizable:       {pct_1a6:.2f}%  → {\"PASA\" if pct_1a6 >= 85 else \"FALLA\"} (≥85%)')\n",
+        "    print(f'  Se reclasifican a 0:          {int((~df_viv[\"P8520S1A1\"].between(1, 6)).sum()):,} filas (0, 8, 9 y vacíos)')\n",
+        "else:\n",
+        "    print('Sin datos reales. ECV 2025: 91.5% de los valores informados son estrato 1–6; el resto son códigos 0, 8 y 9.')\n",
     ]))
 
     # ── 3. Características ────────────────────────────────────────
@@ -358,7 +360,7 @@ def make_nb01():
         "    {'Capítulo':'Servicios',      'Atributo':'DIRECTORIO+SECUENCIA_P', 'Dim':'Completitud',       'Regla':'DQ02','Sev':'Critical','Umbral':'100%',    'F1_obs':'~100%',    'Base_umbral':'Grano de hechos — sin llaves la fila no existe'},\n",
         "    {'Capítulo':'Servicios',      'Atributo':'DIRECTORIO+SECUENCIA_P', 'Dim':'Unicidad',           'Regla':'DQ03','Sev':'Warning', 'Umbral':'≥99%',     'F1_obs':'99.76%',   'Base_umbral':'F1: 212 dups en 88,432 filas (0.24%); >1% = error de carga'},\n",
         "    {'Capítulo':'Servicios',      'Atributo':'P5018',                  'Dim':'Completitud',       'Regla':'DQ04','Sev':'Warning', 'Umbral':'≥70%',     'F1_obs':'~77%',     'Base_umbral':'<70% → imputación domina el KPI eléctrico (R1,R6)'},\n",
-        "    {'Capítulo':'Servicios',      'Atributo':'P5010',                  'Dim':'Validez',           'Regla':'DQ05','Sev':'Warning', 'Umbral':'≥99.9%',   'F1_obs':'~99.99%',  'Base_umbral':'F1: 12 hogares cod 7/8 (0.014%); reclasificar a 0'},\n",
+        "    {'Capítulo':'Vivienda',       'Atributo':'P8520S1A1',              'Dim':'Validez',           'Regla':'DQ05','Sev':'Warning', 'Umbral':'dic. ≥99.9%; 1–6 ≥85%', 'F1_obs':'100% / 91.5%', 'Base_umbral':'Diccionario DANE: 1–6 estrato; 0, 8, 9 códigos especiales → reclasificar a 0'},\n",
         "    {'Capítulo':'Vivienda',       'Atributo':'columnas req.',           'Dim':'Validez (contrato)','Regla':'DQ06','Sev':'Critical','Umbral':'100%',    'F1_obs':'100%',     'Base_umbral':'Contrato fuente — columna faltante = pipeline roto'},\n",
         "    {'Capítulo':'Vivienda',       'Atributo':'P1_DEPARTAMENTO',        'Dim':'Completitud',       'Regla':'DQ07','Sev':'Critical','Umbral':'100%',    'F1_obs':'~100%',    'Base_umbral':'Llave de integración con API IDEAM (R6,R7)'},\n",
         "    {'Capítulo':'Vivienda',       'Atributo':'P1_DEPARTAMENTO',        'Dim':'Validez',           'Regla':'DQ08','Sev':'Critical','Umbral':'100%',    'F1_obs':'100%',     'Base_umbral':'Catálogo DIVIPOLA 33 depts — código inválido = JOIN incorrecto'},\n",

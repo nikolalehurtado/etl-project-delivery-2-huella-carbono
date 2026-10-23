@@ -101,7 +101,7 @@ def compute(df, d):
                      bars([(f"Estrato {int(r.estrato)}", r.kwh) for r in r1.itertuples()], " kWh/mes"),
                      table(r1.rename(columns={"kwh": "kWh/mes (media)", "co2": "kg CO₂/año (media)"}),
                            {"hogares": "{:,.0f}", "kWh/mes (media)": "{:,.1f}", "kg CO₂/año (media)": "{:,.1f}"}),
-                     "Estrato 0 (no válido) se excluye de esta vista."))
+                     "Los hogares sin estrato (valor 0 en la base) se excluyen de esta vista."))
 
     r2 = df.groupby("tipo_combustible").agg(hogares=("sk_fact", "count"),
                                             ton=("emisiones_coccion_kg", lambda x: x.sum() / 1000),

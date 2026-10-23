@@ -15,7 +15,7 @@ y, en esta entrega, explicar parte de la variación del consumo eléctrico con l
 
 **Qué se construyó en la primera fase.** Un Data Warehouse dimensional en MySQL con los microdatos de la ECV 2025 del DANE (único origen) y factores oficiales de emisión, para estimar la **huella de carbono residencial anual** de los hogares colombianos (ODS 12). Los gastos de energía y de combustible de cocina se convertían en kWh y en emisiones mediante tarifas, precios y factores declarados como supuestos. La primera fase respondía cinco requisitos (R1–R5) con consultas SQL sobre el DW.
 
-**Grano declarado:** una fila de hechos por hogar encuestado, identificado por `DIRECTORIO` + `SECUENCIA_P`. La segunda entrega conserva este grano.
+**Grano declarado:** una fila de hechos por hogar encuestado, identificado por `DIRECTORIO` + `SECUENCIA_P` (llaves que identifican al hogar). La segunda entrega conserva este grano.
 
 **Modelo dimensional previo:** esquema en estrella con una tabla de hechos (`fact_huella_carbono`) y cuatro dimensiones (`dim_hogar`, `dim_ubicacion`, `dim_combustibles`, `dim_tarifas`). No tenía ninguna variable de clima.
 
@@ -31,7 +31,7 @@ y, en esta entrega, explicar parte de la variación del consumo eléctrico con l
 | R4 | Vichada, Guainía, Amazonas y Vaupés lideran la huella per cápita (≈620–740 kg) |
 | R5 | La huella per cápita baja de ≈1.000 kg (hogares de 1 persona) a ≈243 kg (hogares de 8 personas) |
 
-*Nota:* estos resultados de la primera fase se calcularon con el factor eléctrico 0,097 y con la leña a factor completo. Las correcciones D-04 (leña) y D-06 (factor eléctrico), explicadas en la sección 24, cambian sus valores absolutos; las nuevas cifras de R2 a R5 están en la sección 22.
+*Nota:* estos resultados de la primera fase se calcularon con el factor eléctrico 0,097, con la leña a factor completo y, además, con `P5010` como "estrato". Esa variable es en realidad el número de cuartos donde duermen las personas del hogar; el estrato verdadero es `P8520S1A1` (estrato para tarifa de energía). La decisión D-07 lo corrige en esta entrega. Las correcciones D-04 (leña) y D-06 (factor eléctrico), explicadas en la sección 24, cambian sus valores absolutos; las nuevas cifras de R2 a R5 están en la sección 22.
 
 **Limitaciones de la primera fase que motivaron cambios.**
 - R3 no era coherente con los datos: la ECV solo dice si el hogar tiene vehículo, no su consumo (sección 3).
@@ -47,7 +47,7 @@ Los requisitos de la primera entrega se revisaron uno por uno. Ninguno se cambi�
 |---|---|---|---|---|
 | R1 | Refinar | Además de por estrato, se puede desagregar por piso térmico uniendo con `dim_clima` | Sirve de puente con R6; no cambia el cálculo de la huella eléctrica | Huella eléctrica media por estrato (y por piso térmico) |
 | R2 | Refinar | Ninguno | El requisito sigue siendo válido, pero su resultado cambia: la leña se trata como carbono neutra (CO₂ = 0), como indica la tabla de factores, por lo que ya no emite más que GLP o gas natural (decisión D-04, supuesto S9). Los precios fijos de combustible quedan como limitación documentada | Emisiones de cocina por combustible |
-| R3 | **Reemplazar** (queda como **R3′**) | De "peso de los vehículos en las emisiones del hogar" a "comparar la huella por energía y cocina de hogares con y sin vehículo, a igual estrato" | Limitación analítica documentada: la ECV solo informa si hay vehículo (`P1077S15`), no su combustible ni su uso, así que el peso del vehículo no se puede calcular. La primera entrega midió otra cosa sin cambiar el requisito. Detalle y fecha en la bitácora | Huella media por estrato y tenencia de vehículo (asociación; las emisiones del vehículo no están incluidas) |
+| R3 | **Reemplazar** (queda como **R3′**) | De "peso de los vehículos en las emisiones del hogar" a "comparar la huella por energía y cocina de hogares con y sin vehículo, a igual estrato" | Limitación analítica documentada: la ECV solo informa si hay vehículo (`P1077S15`, carro particular), no su combustible ni su uso, así que el peso del vehículo no se puede calcular. La primera entrega midió otra cosa sin cambiar el requisito. Detalle y fecha en la bitácora | Huella media por estrato y tenencia de vehículo (asociación; las emisiones del vehículo no están incluidas) |
 | R4 | Refinar (precisión) | Se declara que se responde **por departamento** | La primera entrega hablaba de "municipios o departamentos", pero el modelo y la ECV usada solo traen departamento. Es una precisión, no un cambio de fondo | Huella per cápita por departamento |
 | R5 | Mantener | Ninguno | Sigue siendo válido y no depende de la API | Huella per cápita por tamaño del hogar |
 
@@ -57,7 +57,7 @@ Los requisitos nuevos R6 y R7, que sí usan la API, están en la sección 4.
 
 | ID | Requisito | Datos ECV | Datos API | Llave | KPI | Detalle |
 |---|---|---|---|---|---|---|
-| R6 | ¿Cuántos kWh/mes y kg CO₂ eléctrico más generan los hogares de departamentos cálidos que los de templados o fríos, a igual estrato? | `P5018`, `P5010`, departamento, tarifa | Temperatura media 2025 por departamento | Departamento (DANE) | kWh/mes y kg CO₂/año por piso térmico y estrato; correlación temperatura–kWh | Departamento × estrato |
+| R6 | ¿Cuántos kWh/mes y kg CO₂ eléctrico más generan los hogares de departamentos cálidos que los de templados o fríos, a igual estrato? | `P5018` (pago del último mes por electricidad), `P8520S1A1` (estrato para tarifa de energía), departamento, tarifa | Temperatura media 2025 por departamento | Departamento (DANE) | kWh/mes y kg CO₂/año por piso térmico y estrato; correlación temperatura–kWh | Departamento × estrato |
 | R7 | ¿El % de hogares con aire acondicionado o ventilador sube con la temperatura del departamento, y cuánto CO₂ eléctrico extra tienen? | `P1077S11` (aire acondicionado), `P1077S12` (ventilador o abanico), huella eléctrica | Temperatura media 2025 por departamento | Departamento (DANE) | % de hogares con equipo vs temperatura; diferencia de kg CO₂ | Departamento |
 
 ## 5. Fuente primaria y fuente API
@@ -102,11 +102,11 @@ GROUP BY c.piso_termico ORDER BY kwh_mes_promedio DESC;
 
 | Piso térmico | Hogares | kWh/mes promedio | kg CO₂ eléctrico/año promedio |
 |---|---|---|---|
-| Cálido | 37.694 | 143,6 | 379,1 |
-| Templado | 29.661 | 132,0 | 348,4 |
-| Frío | 17.984 | 118,0 | 311,6 |
+| Cálido | 37.694 | 132,5 | 349,9 |
+| Templado | 29.661 | 112,1 | 295,9 |
+| Frío | 17.984 | 94,5 | 249,4 |
 
-En promedio, un hogar de departamento cálido consume un 21,7 % más electricidad que uno de departamento frío. Esa comparación mezcla estratos, así que se repitió **a igual estrato**, que es lo que pregunta R6:
+En promedio, un hogar de departamento cálido consume un 40,3 % más electricidad que uno de departamento frío. Esa comparación mezcla estratos, así que se repitió **a igual estrato**, que es lo que pregunta R6:
 
 ```sql
 SELECT u.estrato, c.piso_termico, COUNT(*) AS hogares,
@@ -122,24 +122,26 @@ GROUP BY u.estrato, c.piso_termico ORDER BY u.estrato, kwh_mes_promedio DESC;
 
 | Estrato | Cálido (hogares · kWh/mes) | Templado | Frío | Cálido vs. frío |
 |---|---|---|---|---|
-| 1 | 18.059 · 143,7 | 13.148 · 140,2 | 8.314 · 123,2 | +20,5 kWh (+16,6 %) |
-| 2 | 14.360 · 152,0 | 11.367 · 136,8 | 6.817 · 121,0 | +31,0 kWh (+25,6 %) |
-| 3 | 4.621 · 120,3 | 4.381 · 100,0 | 2.496 · 94,1 | +26,2 kWh (+27,8 %) |
-| 4 | 561 · 116,2 | 655 · 102,1 | 322 · 108,5 | +7,7 kWh (+7,1 %) |
-| 5 | 78 · 118,8 | 83 · 89,0 | 30 · 86,2 | +32,6 kWh (+37,8 %) |
-| 6 | 10 · 109,6 | 22 · 91,8 | 3 · 84,5 | +25,1 kWh (+29,7 %) |
+| 1 | 21.156 · 139,4 | 12.993 · 106,1 | 6.492 · 89,9 | +49,5 kWh (+55,1 %) |
+| 2 | 6.318 · 185,3 | 10.372 · 123,4 | 7.425 · 99,2 | +86,1 kWh (+86,8 %) |
+| 3 | 2.203 · 170,6 | 3.343 · 115,9 | 2.395 · 94,3 | +76,3 kWh (+80,9 %) |
+| 4 | 357 · 225,1 | 1.082 · 127,4 | 611 · 99,2 | +125,9 kWh (+126,9 %) |
+| 5 | 95 · 250,0 | 375 · 131,2 | 245 · 117,8 | +132,2 kWh (+112,2 %) |
+| 6 | 70 · 275,8 | 103 · 156,3 | 244 · 154,0 | +121,8 kWh (+79,1 %) |
+| Sin estrato | 7.495 · 50,3 | 1.393 · 54,2 | 572 · 46,5 | no se interpreta |
 
-(El estrato 0 agrupa 12 hogares con estrato inválido reclasificado y no se interpreta.)
+(**Sin estrato** agrupa a los hogares sin un estrato 1 a 6 en la ECV: factura sin estrato o servicio ilegal, vivienda con planta eléctrica, o estrato desconocido sin factura. En la base se guarda con el valor 0 en `dim_ubicacion.estrato`, pero no es un estrato. Son 9.460 hogares con clima y no se interpretan.)
 
 **Interpretación.**
-- **A igual estrato, los hogares de departamentos cálidos consumen más electricidad que los de departamentos fríos, en los seis estratos**, con diferencias de entre 7 % y 38 %. Por lo tanto la diferencia global de 21,7 % no se explica solo porque los departamentos cálidos tengan una mezcla distinta de estratos.
-- Los estratos 1 a 3 reúnen el 97,9 % de los hogares con clima, y ahí la diferencia es sólida (17 % a 28 %, con miles de hogares por celda).
-- **Cautela con los estratos 4 a 6:** tienen pocos hogares (por ejemplo 3 hogares fríos en el estrato 6 y 10 cálidos), así que sus promedios son inestables. En el estrato 4 el piso frío (108,5) queda por encima del templado (102,1), una excepción al patrón que no se interpreta por el tamaño de la muestra.
+- **A igual estrato, el consumo eléctrico sube con el calor del departamento: cálido > templado > frío en los seis estratos.** La diferencia entre cálido y frío va de 55 % a 127 %.
+- **La diferencia global (40,3 %) es menor que la de cada estrato por la mezcla de hogares sin estrato.** Esos hogares son el 19,9 % de los hogares cálidos y solo el 3,2 % de los fríos, y su consumo estimado es bajo (alrededor de 50 kWh/mes), lo que baja el promedio del piso cálido. Sin ellos, el promedio global sería 153,0 kWh en cálido contra 96,1 en frío (+59 %).
+- Los estratos 1 a 3 reúnen el 85,2 % de los hogares con clima (72.697 de 85.339) y el 95,8 % de los que tienen estrato 1 a 6, con miles de hogares por celda.
+- **Cautela con los estratos 4 a 6:** tienen menos hogares por celda (la más pequeña es de 70 hogares, estrato 6 en piso cálido), así que sus promedios son menos estables. En el estrato 6 los pisos templado y frío casi no se diferencian (156,3 contra 154,0 kWh).
 - El CO₂ eléctrico anual se calcula como kWh × 12 × 0,220 kg/kWh (supuesto S3, decisión D-06), por lo que la diferencia porcentual de CO₂ es idéntica a la de kWh.
 
 **Límites que se deben declarar.**
 - Es una **asociación**, no una causa: los departamentos cálidos y fríos difieren también en otros aspectos (región, tipo de vivienda, ingresos dentro del estrato) que la ECV no controla en este análisis.
-- Los kWh **no se miden**: se estiman dividiendo el pago de energía (`P5018`) entre una tarifa por estrato (supuestos S1 y S2). Si las tarifas reales difieren de las supuestas, cambian los niveles, aunque la comparación entre pisos térmicos dentro de un mismo estrato usa la misma tarifa.
+- Los kWh **no se miden**: se estiman dividiendo el pago de energía (`P5018`, pago del último mes por electricidad) entre una tarifa por estrato (supuestos S1 y S2); si el pago cubre varios meses se divide entre ellos (decisión D-08). Si las tarifas reales difieren de las supuestas, cambian los niveles, aunque la comparación entre pisos térmicos dentro de un mismo estrato usa la misma tarifa.
 - La temperatura es un **promedio departamental** de las estaciones del IDEAM, no la del hogar (supuesto S14). Vaupés queda fuera de R6 y R7 por no tener datos (decisión D-02).
 
 **Demostración con el DW (R7).** La consulta de R7 (`sql/analytical_queries.sql`) une `fact_huella_carbono` con `dim_clima` y `dim_hogar` y calcula, por departamento, el porcentaje de hogares con aire acondicionado (`P1077S11`) y con ventilador o abanico (`P1077S12`), según el [diccionario de datos de la ECV 2025](https://microdatos.dane.gov.co/index.php/catalog/905), junto con la temperatura y el consumo eléctrico. Solo entran hogares con clima emparejado (85.339 hogares, 32 departamentos).
@@ -148,15 +150,15 @@ GROUP BY u.estrato, c.piso_termico ORDER BY u.estrato, kwh_mes_promedio DESC;
 
 | Piso térmico (IDEAM) | Departamentos | Hogares con aire acondicionado | Hogares con ventilador | kWh/mes | CO₂ eléctrico (kg/año) |
 |---|---|---|---|---|---|
-| Cálido (>24 °C) | 16 | 9,3 % | 71,8 % | 143,6 | 379,1 |
-| Templado (18–24 °C) | 10 | 2,3 % | 31,9 % | 132,0 | 348,4 |
-| Frío (<18 °C) | 6 | 2,2 % | 19,6 % | 118,0 | 311,6 |
+| Cálido (>24 °C) | 16 | 9,3 % | 71,8 % | 132,5 | 349,9 |
+| Templado (18–24 °C) | 10 | 2,3 % | 31,9 % | 112,1 | 295,9 |
+| Frío (<18 °C) | 6 | 2,2 % | 19,6 % | 94,5 | 249,4 |
 
 (Promedios ponderados por número de hogares de cada departamento.)
 
 **Interpretación de R7.**
 - **El porcentaje de hogares con equipo sube con la temperatura del departamento.** La correlación de rangos (Spearman) entre temperatura y porcentaje de hogares es 0,82 para ventilador y 0,71 para aire acondicionado. A nivel nacional, 46,9 % de los hogares tiene ventilador y 5,4 % aire acondicionado.
-- **El impacto en la huella eléctrica es moderado:** un hogar en un departamento cálido consume ≈22 % más kWh (143,6 contra 118,0) y emite ≈22 % más CO₂ eléctrico (379,1 contra 311,6 kg/año) que uno en un departamento frío. Los dos porcentajes coinciden porque el CO₂ se calcula como kWh × 12 × 0,220 (supuesto S3, decisión D-06).
+- **El impacto en la huella eléctrica es notable:** un hogar en un departamento cálido consume ≈40 % más kWh (132,5 contra 94,5) y emite ≈40 % más CO₂ eléctrico (349,9 contra 249,4 kg/año) que uno en un departamento frío. Los dos porcentajes coinciden porque el CO₂ se calcula como kWh × 12 × 0,220 (supuesto S3, decisión D-06).
 - **Anomalía de Arauca (decisión D-05, supuesto S16).** Arauca aparece con 10,2 °C y piso "frío", pero 91,3 % de sus hogares tiene ventilador y 11,7 % aire acondicionado, un perfil de clima cálido. La API trae **una sola estación** para Arauca, y su promedio parece no representar a la población del departamento (hipótesis: la ubicación de la estación no se verificó). Los datos no se modificaron. **Sin Arauca la relación es más fuerte** (0,92 para ventilador y 0,81 para aire acondicionado) y el grupo "frío" pasa de 19,6 % a ≈8 % de hogares con ventilador. La conclusión no cambia con ni sin Arauca.
 - La misma anomalía afecta al piso "frío" de R6, donde Arauca está incluido.
 
@@ -248,7 +250,7 @@ flowchart TB
 | Consultas SQL, KPI y dashboard | Recuadro "Consumo analítico" |
 | Airflow: dependencias, reintentos, logs y monitoreo | Recuadro "Apache Airflow" (las flechas son las dependencias; `extract_api` muestra sus reintentos) y la tabla de componentes de esta sección |
 
-**Proceso de negocio y grano.** El proceso que se modela es la estimación anual de la huella de carbono residencial de un hogar. El grano de la tabla de hechos es **un registro por hogar encuestado** (`DIRECTORIO` + `SECUENCIA_P`).
+**Proceso de negocio y grano.** El proceso que se modela es la estimación anual de la huella de carbono residencial de un hogar. El grano de la tabla de hechos es **un registro por hogar encuestado** (`DIRECTORIO` + `SECUENCIA_P`, llaves que identifican al hogar).
 
 ## 8. Hallazgos de perfilamiento
 
@@ -256,14 +258,14 @@ Dos notebooks reproducibles en `notebooks/`:
 
 | Notebook | Contenido | Reglas DQ cubiertas |
 |---|---|---|
-| [`01_perfilamiento_ecv_primaria.ipynb`](notebooks/01_perfilamiento_ecv_primaria.ipynb) | Grano y duplicados, completitud P5018 (~77%), distribución de estrato, contrato columnar de los 4 capítulos, validez P1_DEPARTAMENTO, dominio P1077S15/S11/S12, reformulación R3 | DQ01–DQ11 |
-| [`02_perfilamiento_api_ideam.ipynb`](notebooks/02_perfilamiento_api_ideam.ipynb) | Contrato del endpoint SODA, rango físico de temperatura [-15°C, 50°C], cobertura departamental (≥20 dptos), consistencia temporal (2025), coordenadas dentro de Colombia, normalización de nombres de departamentos, clasificación por piso térmico | DQ12–DQ18 |
+| [`01_perfilamiento_ecv_primaria.ipynb`](notebooks/01_perfilamiento_ecv_primaria.ipynb) | Grano y duplicados, completitud P5018 (~77%), distribución de estrato, contrato columnar de los 4 capítulos, validez P1_DEPARTAMENTO (código del departamento), dominio P1077S15 (carro particular)/S11/S12, reformulación R3 | DQ01–DQ11 |
+| [`02_perfilamiento_api_ideam.ipynb`](notebooks/02_perfilamiento_api_ideam.ipynb) | Contrato del endpoint SODA, rango físico de temperatura [-15°C, 50°C], cobertura departamental (≥30 dptos, decisión D-03), consistencia temporal (2025), coordenadas dentro de Colombia, normalización de nombres de departamentos, clasificación por piso térmico | DQ12–DQ18 |
 
 **Hallazgos clave (con impacto en el pipeline):**
-- `P5018` completitud ≈77% (umbral DQ04 ≥70% — conservador con 7pp de margen)
+- `P5018` (pago del último mes por electricidad) completitud ≈77% (umbral DQ04 ≥70% — conservador con 7pp de margen)
 - 212 duplicados en la fase 1 (0.24%) → umbral DQ03 ≥99%; ≤1% = error de carga
-- Estratos 7/8: 12 hogares de 88,432 (0.014%) → umbral DQ05 ≥99.9%
-- `P1077S15` es puramente binaria {1, 2} → sustenta reformulación de R3
+- Estrato para tarifa (`P8520S1A1`): el 91,5 % de los valores informados es un estrato 1 a 6; los códigos 0, 8 y 9 y los vacíos (10.060 hogares) se reclasifican a "sin estrato" → DQ05 con dos controles: dominio del diccionario DANE (≥ 99,9 %) y estrato 1 a 6 (≥ 85 %)
+- `P1077S15` (carro particular) es puramente binaria {1, 2} → sustenta reformulación de R3
 - Nombres de departamentos del IDEAM no estandarizados → tabla `ALIAS_DEPARTAMENTO` en `src/transform.py`
 - Fallas de sensor (DQ15): umbral 99.5% basado en aviso oficial de la ficha IDEAM
 
@@ -278,7 +280,7 @@ contractual, analítica o física documentada. Ningún umbral fue elegido única
 |---|---|
 | Objeto de datos | DataFrame del lote raw (compuertas 1 y 2) o preparado (compuerta 3) |
 | Expectation | Una por regla; el ID de la regla va en `meta.rule_id`; severidad en `expectation.severity` |
-| Suites (compuerta 1 — raw ECV) | `ecv_servicios_raw_suite` (DQ01–DQ05), `ecv_vivienda_raw_suite` (DQ06–DQ08), `ecv_caracteristicas_raw_suite` (DQ09), `ecv_condiciones_raw_suite` (DQ10–DQ11) |
+| Suites (compuerta 1 — raw ECV) | `ecv_servicios_raw_suite` (DQ01–DQ04), `ecv_vivienda_raw_suite` (DQ05–DQ08), `ecv_caracteristicas_raw_suite` (DQ09), `ecv_condiciones_raw_suite` (DQ10–DQ11) |
 | Suites (compuerta 2 — raw API) | `api_ideam_raw_suite` (DQ12–DQ18) |
 | Suites (compuerta 3 — preparados) | `prepared_fact_huella_suite` (DQ19–DQ25), `prepared_dim_hogar_suite` (DQ26), `prepared_dim_ubicacion_suite` (DQ27), `prepared_dim_clima_suite` (DQ28), `prepared_dim_tarifas_suite` (DQ29), `prepared_dim_combustibles_suite` (DQ30) |
 | Validation Definition | Batch del DataFrame + suite (`src/validation.py: run_suite`) — modo `ephemeral` (sin servidor GX) |
@@ -298,6 +300,7 @@ La estrategia de integración une los microdatos de la ECV con los datos climát
 
 **Contrato de Integración:**
 *   **Llave ECV:** `P1_DEPARTAMENTO` (código DANE numérico), extraído del capítulo "Datos de la vivienda".
+*   **Estrato:** `P8520S1A1` (estrato para tarifa de energía), también del capítulo "Datos de la vivienda" y unido por `DIRECTORIO` + `SECUENCIA_P`. Los códigos 0, 8 y 9 y los vacíos se reclasifican a "sin estrato" (valor 0 en la base) (decisión D-07).
 *   **Llave API:** `departamento` (texto del IDEAM), el cual se normaliza (minúsculas, sin tildes ni puntuación) y se traduce al código DANE usando el diccionario `data/reference/dane_departamentos.csv` (incluyendo alias como Bogotá y San Andrés).
 *   **Cardinalidad:** Muchos a uno (N:1). Muchos hogares se asocian a 1 única fila de clima por departamento.
 *   **Alineación temporal:** Ambas fuentes corresponden a ventanas temporales del año 2025.
@@ -309,18 +312,23 @@ La estrategia de integración une los microdatos de la ECV con los datos climát
 
 *   **Cobertura real de la API y decisión sobre Vaupés (D-02):** la consulta al IDEAM en tres ventanas de 2025 dio **32 de 33 departamentos** ([evidencia](docs/evidence/cobertura_api_ideam_2025.md)). **Vaupés (97) no tiene estaciones con datos**, así que sus 1.509 hogares (≈1,7 %) quedan con `fk_clima` NULL y `clima_emparejado = 0`: se conservan en R1–R5 y se excluyen de R6 y R7. **No se le asigna 0 °C ni la temperatura de otro departamento**, porque eso sería un dato inventado: Vaupés es cálido y un 0 lo clasificaría como "Frío", sesgando R6 y R7. Razonamiento completo en [`docs/supuestos_y_trazabilidad.md`](docs/supuestos_y_trazabilidad.md) (D-02).
 
-**Evidencia de transformación e integración (antes y después).** El pipeline genera automáticamente un informe con los conteos de cada corrida. Estos son los de la corrida exitosa `manual__2026-10-21T22_11_02.143248_00_00` (archivo completo: [`docs/evidence/integration_report.json`](docs/evidence/integration_report.json)):
+**Evidencia de transformación e integración (antes y después).** El pipeline genera automáticamente un informe con los conteos de cada corrida. Estos son los de la corrida exitosa `manual__2026-10-23T04_01_15.889885_00_00` (archivo completo: [`docs/evidence/integration_report.json`](docs/evidence/integration_report.json)):
 
 *Limpieza de la ECV (fuente primaria).*
 
 | Paso | Hogares / valores |
 |---|---|
 | Hogares de entrada (4 capítulos unidos) | 87.060 |
-| Duplicados eliminados (llave `DIRECTORIO` + `SECUENCIA_P`) | 212 |
-| `P5018` (pago de energía) nulos imputados con la mediana del estrato | 19.969 |
-| `P5018` atípicos truncados al percentil 99 | 855 |
-| `P5018` en cero imputados (estrato distinto de 1) | 123 |
-| Estratos inválidos reclasificados a 0 | 12 |
+| Duplicados eliminados (llave `DIRECTORIO` + `SECUENCIA_P`, las que identifican al hogar) | 212 |
+| Hogares sin estrato 1 a 6 (códigos 0, 8, 9 o vacío), reclasificados a "sin estrato" | 10.060 |
+| `P5018` (pago del último mes por electricidad) con código 98 o 99, pasado a nulo | 233 |
+| `P5018` con pago de varios meses, dividido entre los meses (`P5018S1`) | 7.039 |
+| `P3163` (pago de gas natural) con código 98 o 99, pasado a nulo | 208 |
+| `P3163` con pago de varios meses, dividido entre los meses (`P3163S1`) | 214 |
+| `P8540` (pago de combustible para cocinar) con código 98 o 99, pasado a nulo | 471 |
+| `P5018` nulos imputados con la mediana del estrato | 20.202 |
+| `P5018` atípicos truncados al percentil 99 | 761 |
+| `P5018` en cero imputados (estrato distinto de 1) | 71 |
 | **Hogares de salida** | **86.848** (= 87.060 − 212) |
 
 *Integración con la API del IDEAM (llave: código de departamento DANE).*
@@ -415,7 +423,7 @@ erDiagram
 |---|---|---|---|---|---|
 | `fact_huella_carbono` | Hechos | un hogar encuestado | `sk_fact` | 86.848 | ECV 2025, calculada en la transformación |
 | `dim_hogar` | Dimensión | un hogar | `sk_hogar` | 86.848 | ECV (características y condiciones) |
-| `dim_ubicacion` | Dimensión | un departamento y un estrato | `sk_ubicacion` | 193 | ECV (vivienda y servicios) |
+| `dim_ubicacion` | Dimensión | un departamento y un estrato | `sk_ubicacion` | 192 | ECV (vivienda y servicios) |
 | `dim_clima` | Dimensión (**nueva**) | un departamento | `sk_clima` | 32 | **API del IDEAM** |
 | `dim_combustibles` | Dimensión | un combustible de cocina | `sk_combustible` | 3 | `data/reference/dim_combustibles.csv` |
 | `dim_tarifas` | Dimensión | un estrato | `sk_tarifa` | 6 | `data/reference/dim_tarifas.csv` |
@@ -448,7 +456,7 @@ Compuerta 3 implementada en `run_prepared_gate()` (`src/validation.py`). Valida 
 | `fact_huella_carbono` | `prepared_fact_huella_suite` | DQ19–DQ25 | Grano único, FKs no nulas, emparejamiento ≥50%, emisiones ≥0, consistencia total |
 | `dim_hogar` | `prepared_dim_hogar_suite` | DQ26 | `sk_hogar` único, `num_personas` ≥1, tenencia en `{Sí, No}` |
 | `dim_ubicacion` | `prepared_dim_ubicacion_suite` | DQ27 | Surrogate único, estrato en [0,6], código departamento no nulo |
-| `dim_clima` | `prepared_dim_clima_suite` | DQ28 | 1 fila/departamento, temperatura [-15,50]°C, consistencia min≤media≤max, piso térmico en dominio, ≥20 dptos |
+| `dim_clima` | `prepared_dim_clima_suite` | DQ28 | 1 fila/departamento, temperatura [-15,50]°C, consistencia min≤media≤max, piso térmico en dominio, ≥30 dptos |
 | `dim_tarifas` | `prepared_dim_tarifas_suite` | DQ29 | Surrogate único, estratos 1–6, costo > 0 |
 | `dim_combustibles` | `prepared_dim_combustibles_suite` | DQ30 | Surrogate único, factor emisión > 0 |
 
@@ -457,7 +465,7 @@ Compuerta 3 implementada en `run_prepared_gate()` (`src/validation.py`). Valida 
 La base de datos analítica es **MySQL 8** (contenedor `mysql-dw`, expuesto en el puerto 3307 del equipo). El Data Warehouse es independiente de la base de metadatos de Airflow (PostgreSQL) y de los archivos raw o preparados, que son solo almacenamiento intermedio.
 
 *   **Estructuras dimensionales:** [`sql/dw_schema.sql`](sql/dw_schema.sql) crea con `CREATE TABLE IF NOT EXISTS` cinco dimensiones (`dim_hogar`, `dim_ubicacion`, `dim_clima`, `dim_combustibles`, `dim_tarifas`), la tabla de hechos `fact_huella_carbono` y la tabla de auditoría `etl_audit_log`. `load_dw` aplica el esquema en cada carga, así que el DW se crea solo al primer uso.
-*   **Grano de la tabla de hechos:** un registro por hogar encuestado (`DIRECTORIO` + `SECUENCIA_P`).
+*   **Grano de la tabla de hechos:** un registro por hogar encuestado (`DIRECTORIO` + `SECUENCIA_P`, llaves que identifican al hogar).
 *   **Llaves y relaciones:** cada tabla tiene llave primaria surrogate (`sk_*`). La tabla de hechos tiene cinco llaves foráneas (`fk_hogar`, `fk_ubicacion`, `fk_clima`, `fk_combustible_cocina`, `fk_tarifa_energia`) con `ON DELETE RESTRICT`, así que MySQL rechaza cualquier hecho que apunte a una dimensión inexistente. `fk_clima`, `fk_combustible_cocina` y `fk_tarifa_energia` admiten NULL; en `fk_clima` es la forma de representar a los hogares sin clima (Vaupés), junto con la bandera `clima_emparejado = 0`.
 *   **Solo datos aceptados:** `load_dimensional_dw` depende de `validate_prepared` en el DAG. Si esa compuerta tiene un Critical, la carga ni siquiera empieza (ver sección 14).
 *   **Orden de carga:** primero se borran los hechos y luego las dimensiones; después se insertan las dimensiones (padres) y por último los hechos (hija), siempre dentro de una sola transacción (sección 20). Los `INSERT` se hacen en bloques de 5.000 filas.
@@ -470,7 +478,7 @@ La base de datos analítica es **MySQL 8** (contenedor `mysql-dw`, expuesto en e
 | Tabla | Filas en el DW |
 |---|---|
 | `dim_hogar` | 86.848 |
-| `dim_ubicacion` | 193 |
+| `dim_ubicacion` | 192 |
 | `dim_clima` | 32 |
 | `dim_combustibles` | 3 |
 | `dim_tarifas` | 6 |
@@ -591,7 +599,7 @@ La corrida completa duró 2 min 17 s (inicio 23:07:05, fin 23:09:22, hora de Col
 | Tabla | Filas |
 |---|---|
 | `dim_hogar` | 86.848 |
-| `dim_ubicacion` | 193 |
+| `dim_ubicacion` | 192 |
 | `dim_clima` | 32 |
 | `dim_combustibles` | 3 |
 | `dim_tarifas` | 6 |
@@ -603,7 +611,7 @@ La corrida completa duró 2 min 17 s (inicio 23:07:05, fin 23:09:22, hora de Col
 - `dim_clima` tiene 32 filas: los 32 departamentos con dato de temperatura del IDEAM. Vaupés no tiene estaciones con dato; su tratamiento está documentado en la decisión D-02 de [`docs/supuestos_y_trazabilidad.md`](docs/supuestos_y_trazabilidad.md) y en [`docs/evidence/cobertura_api_ideam_2025.md`](docs/evidence/cobertura_api_ideam_2025.md).
 - La carga quedó registrada en `etl_audit_log` (6 filas, una por tabla, estado `SUCCESS`).
 
-**Corrida final después de las correcciones D-04 y D-06.** Después de corregir tres puntos (leña como carbono neutra, factor eléctrico de la UPME y significado de `P1077S11` y `P1077S12`) se volvió a ejecutar el DAG completo con `ecv_source = raw`. Corrida `manual__2026-10-22T00:56:02.910409+00:00`: las 7 tareas terminaron en **Éxito al primer intento** en 2 min 1 s.
+**Corrida final después de las correcciones D-04 y D-06.** Después de corregir tres puntos (leña como carbono neutra, factor eléctrico de la UPME y significado de `P1077S11`, aire acondicionado, y `P1077S12`, ventilador o abanico) se volvió a ejecutar el DAG completo con `ecv_source = raw`. Corrida `manual__2026-10-22T00:56:02.910409+00:00`: las 7 tareas terminaron en **Éxito al primer intento** en 2 min 1 s.
 
 ![Corrida final: 7 tareas en Éxito](docs/evidence/prueba_D_dag_final.png)
 
@@ -618,11 +626,30 @@ Los conteos de carga no cambiaron (mismos 86.848 hogares), porque las correccion
 | Cocina con leña (13.943 hogares) | 0 kg (carbono neutra) · huella total 245 kg |
 | Sin combustible de cocina (3.016 hogares) | 0 kg · huella total 293 kg |
 
-Por eso las capturas de las secciones 6 y 22 usan los valores de esta corrida, y los de la primera entrega no son comparables en valor absoluto (sección 24).
+Estos valores fueron superados por la corrida posterior a D-07 y D-08, que sigue. Los de la primera entrega no son comparables en valor absoluto (sección 24).
+
+**Corrida después de las correcciones D-07 y D-08.** Al revisar el diccionario de datos del DANE se encontró que la variable usada como estrato (`P5010`) es el número de cuartos donde duermen las personas, que los pagos de energía y gas natural pueden cubrir varios meses (`P5018S1` y `P3163S1`) y que los valores 98 y 99 no son montos. Se corrigió (decisiones D-07 y D-08, supuestos S10 y S17) y se volvió a ejecutar el DAG completo con `ecv_source = raw`. Corrida `manual__2026-10-23T04:01:15.889885+00:00`: las 7 tareas terminaron en **Éxito al primer intento** en 3 min 35 s.
+
+![Corrida posterior a D-07 y D-08: 7 tareas en Éxito](docs/evidence/prueba_E_dag_estrato.png)
+
+Los conteos de carga no cambiaron (86.848 hogares), salvo `dim_ubicacion`: pasa de 193 a **192** filas, porque ahora el estrato tiene valores 0 (sin estrato) a 6 y antes tenía hasta 8 valores distintos. Consulta directa al DW después de esta corrida:
+
+| Medida | Valor |
+|---|---|
+| Huella media por hogar | 859 kg CO₂/año |
+| Emisión eléctrica media | 307 kg CO₂/año |
+| Cocina con GLP (31.489 hogares) | 994 kg · huella total 1.291 kg |
+| Cocina con gas natural (38.400 hogares) | 433 kg · huella total 805 kg |
+| Cocina con leña (13.943 hogares) | 0 kg (carbono neutra) · huella total 164 kg |
+| Sin combustible de cocina (3.016 hogares) | 0 kg · huella total 243 kg |
+
+Por eso las secciones 6 y 22 usan los valores de esta corrida.
 
 ## 19. Evidencia de la falla controlada (Prueba B)
 
-**Cómo se provoca.** `src/make_bad_data.py` no toca los archivos originales: crea una copia de `Datos de la vivienda.csv` en `data/test/` con **una sola** violación determinista. En la fila 0, `P1_DEPARTAMENTO` pasa de `13` a `999`, un código que no existe en DIVIPOLA. Rompe la regla **DQ08 (Critical)**, porque ese código es la llave de integración con la API.
+**Nota sobre las pruebas B, C y C-2.** Sus capturas se tomaron antes de la corrección D-07. En ellas `dim_ubicacion` aparece con 193 filas y, en el log de la Prueba B, la regla DQ05 menciona la columna `P5010`; con D-07 son 192 filas y la regla revisa `P8520S1A1` (suite de vivienda). El comportamiento que demuestran (bloqueo por Critical, repetibilidad y rollback) no depende de esos valores.
+
+**Cómo se provoca.** `src/make_bad_data.py` no toca los archivos originales: crea una copia de `Datos de la vivienda.csv` en `data/test/` con **una sola** violación determinista. En la fila 0, `P1_DEPARTAMENTO` (código del departamento) pasa de `13` a `999`, un código que no existe en DIVIPOLA. Rompe la regla **DQ08 (Critical)**, porque ese código es la llave de integración con la API.
 
 ```
 docker compose exec airflow-scheduler python /opt/airflow/src/make_bad_data.py
@@ -761,14 +788,14 @@ El producto analítico es un informe de **Power BI Desktop** (`dashboard/huella_
 *Qué demuestra:* el servidor `localhost:3307` y la base `huella_carbono_dw_v2` son el DW de la sección 15, y las tablas importadas son las del modelo de la sección 13.
 
 **Página 1 — Huella residencial (R1 a R5).**
-- Tarjetas: hogares (86.848), huella media por hogar (905 kg CO₂/año) y emisión eléctrica media (351 kg CO₂/año).
-- Gráficas: R1 columnas por estrato; R2 barras por combustible de cocina; R3′ barras por estrato y tenencia de carro; R4 barras por departamento (huella per cápita); R5 líneas por tamaño del hogar.
+- Tarjetas: hogares (86.848), huella media por hogar (859 kg CO₂/año) y emisión eléctrica media (307 kg CO₂/año).
+- Gráficas: R1 columnas por estrato (sin los hogares sin estrato); R2 barras por combustible de cocina; R3′ barras por estrato y tenencia de carro; R4 barras por departamento (huella per cápita); R5 líneas por tamaño del hogar.
 - Filtros: estrato y departamento.
 
 ![Página 1 del dashboard: R1 a R5](docs/evidence/dashboard_p1_huella_residencial.png)
 
 **Página 2 — Valor de la API del IDEAM (R6 y R7).**
-- Tarjetas: hogares con clima emparejado (85.339, 98,3 %), kWh/mes en piso cálido contra frío (143,6 contra 118,0, es decir +21,7 %) y diferencia de CO₂ eléctrico (+67,5 kg/año por hogar).
+- Tarjetas: hogares con clima emparejado (85.339, 98,3 %), kWh/mes en piso cálido contra frío (132,5 contra 94,5, es decir +40,3 %) y diferencia de CO₂ eléctrico (+100,5 kg/año por hogar).
 - Gráficas: R6 columnas de kWh por estrato y piso térmico; R7 dispersión de temperatura departamental contra porcentaje de hogares con ventilador y con aire acondicionado (un punto por departamento).
 - Filtros: departamento (permite ver los resultados sin Arauca, decisión D-05) y piso térmico.
 
@@ -784,7 +811,7 @@ El producto analítico es un informe de **Power BI Desktop** (`dashboard/huella_
 | R4 | `fact_huella_carbono` + `dim_ubicacion` + `dim_hogar` (personas); consulta R4 | Barras por departamento (huella per cápita) | No usa la API |
 | R5 | `fact_huella_carbono` + `dim_hogar`; consulta R5 | Líneas por tamaño del hogar (huella per cápita) | No usa la API |
 | R6 | `fact_huella_carbono` + `dim_clima` (**API**) + `dim_ubicacion`; consulta R6 | Tarjetas de kWh y CO₂ cálido contra frío; columnas por estrato y piso térmico | **Sin la API no existe `dim_clima`**: no habría piso térmico y la pregunta no tendría respuesta |
-| R7 | `dim_hogar` (`P1077S11`, `P1077S12`) + `dim_clima` (**API**); consulta R7 | Dispersión temperatura contra % de hogares con ventilador y con aire acondicionado | **Sin la API** no se podría ordenar ni comparar los departamentos por temperatura |
+| R7 | `dim_hogar` (columnas de aire acondicionado, `P1077S11`, y de ventilador, `P1077S12`) + `dim_clima` (**API**); consulta R7 | Dispersión temperatura contra % de hogares con ventilador y con aire acondicionado | **Sin la API** no se podría ordenar ni comparar los departamentos por temperatura |
 
 La tarjeta "hogares con clima emparejado" (98,3 %) y las visualizaciones de R6 y R7 son el **KPI y las gráficas que demuestran el valor de integrar la API**: dependen por completo de `dim_clima`, que solo existe por la fuente del IDEAM.
 
@@ -795,19 +822,20 @@ La tarjeta "hogares con clima emparejado" (98,3 %) y las visualizaciones de R6 y
 
 | Req. | Consulta | Resultado principal | Visualización y evidencia |
 |---|---|---|---|
-| R1 | R1 | El consumo eléctrico baja de 137–139 kWh/mes (estratos 1 y 2) a 94 kWh (estrato 6), y la huella eléctrica de 363–367 a 248 kg CO₂/año. Aun así, la huella total sube de 853 (estrato 1) a 1.254 kg/año (estrato 6), así que lo que crece es la componente de cocina. Los estratos 0 (12 hogares) y 6 (36 hogares) tienen pocos hogares | Página 1 del dashboard |
-| R2 | R2 | GLP 994 kg/año de cocina, gas natural 436, leña 0 (carbono neutra, D-04) | Página 1; [captura por combustible](docs/evidence/r2_lena_carbono_neutro.png) |
-| R3′ | R3 | A igual estrato, los hogares **con** carro tienen mayor huella que los que no: estrato 1, 1.300 contra 818 kg; estrato 2, 1.249 contra 911; estrato 3, 1.183 contra 899; estrato 4, 1.331 contra 1.006; estrato 5, 1.492 contra 972; estrato 6, 1.402 contra 1.180. Global: 1.258 contra 867 | Página 1 |
-| R4 | R4 | Mayor huella per cápita: San Andrés 696, Amazonas 487, Antioquia 429, Caldas 427 y Arauca 406 kg/año. Menor: Vaupés 121, La Guajira 221 y Sucre 254 | Página 1 |
-| R5 | R5 | La huella per cápita baja de 802 kg (hogares de 1 persona) a 477 (2), 312 (3), 231 (4) y 102 (8). La huella total del hogar casi no cambia entre 2 y 8 personas (815–954 kg), así que la curva refleja economías de escala | Página 1 |
-| R6 | R6 | A igual estrato, los hogares de departamentos cálidos consumen más kWh que los de departamentos fríos en los seis estratos (7 % a 38 %); global: 143,6 contra 118,0 kWh (+21,7 %) y 379,1 contra 311,6 kg CO₂/año | Página 2; capturas de la sección 6 |
+| R1 | R1 | El consumo eléctrico sube con el estrato: de 119,4 kWh/mes (estrato 1) a 175,0 (estrato 6), con el estrato 3 (124,5) algo por debajo del 2 (132,1). La huella eléctrica pasa de 315 a 462 kg CO₂/año y la huella total de 903 a 1.624 kg/año. Los 10.060 hogares sin estrato no se interpretan | Página 1 del dashboard |
+| R2 | R2 | GLP 994 kg/año de cocina, gas natural 433, leña 0 (carbono neutra, D-04) | Página 1; [captura por combustible](docs/evidence/r2_lena_carbono_neutro.png) |
+| R3′ | R3 | A igual estrato, los hogares **con** carro tienen mayor huella que los que no: estrato 1, 1.127 contra 893; estrato 2, 1.064 contra 858; estrato 3, 1.054 contra 854; estrato 4, 1.058 contra 865; estrato 5, 1.290 contra 1.040; estrato 6, 1.770 contra 1.223 kg. Global: 1.112 contra 832 kg | Página 1 |
+| R4 | R4 | Mayor huella per cápita: San Andrés 649, Amazonas 467, Arauca 403, Antioquia 394 y Caldas 377 kg/año. Menor: Vaupés 104, La Guajira 198 y Casanare 223 | Página 1 |
+| R5 | R5 | La huella per cápita baja de 709 kg (hogares de 1 persona) a 431 (2), 301 (3), 236 (4) y 109 (8). La huella total del hogar casi no cambia entre 2 y 8 personas (862–945 kg), así que la curva refleja economías de escala | Página 1 |
+| R6 | R6 | A igual estrato, cálido > templado > frío en los seis estratos (entre cálido y frío, de 55 % a 127 %); global: 132,5 contra 94,5 kWh (+40,3 %) y 349,9 contra 249,4 kg CO₂/año | Página 2; capturas de la sección 6 |
 | R7 | R7 | El porcentaje de hogares con ventilador y con aire acondicionado sube con la temperatura: ventilador 71,8 % (cálido), 31,9 % (templado) y 19,6 % (frío); aire acondicionado 9,3 %, 2,3 % y 2,2 % | Página 2; capturas de la sección 6 |
 
 *Qué cambió frente a la primera entrega.*
 - **R3′:** el resultado "contraintuitivo" de la primera entrega (los hogares sin carro con mayor huella: 1.232 contra 1.030 kg) venía de la leña. Los hogares sin carro cocinan más con leña y el factor completo inflaba su huella. Con la leña como carbono neutra, el resultado es el esperado. Esto es una interpretación respaldada por el cambio de resultado, no una prueba causal.
-- **R4:** los departamentos que lideraban (Vichada, Guainía, Amazonas y Vaupés) eran los que más cocinan con leña. Ahora Vaupés, La Guajira y Sucre quedan al final, en parte por esa misma convención.
-- **R5:** la relación inversa se mantiene, con valores más bajos que en la primera entrega (1.000 a 243 kg).
-- Los valores absolutos de R1 a R5 no son comparables con los de la primera entrega por las correcciones D-04 y D-06 (sección 24). R4 usa las personas de la muestra, sin factores de expansión de la ECV: describe la muestra, no la población nacional.
+- **R4:** los departamentos que lideraban (Vichada, Guainía, Amazonas y Vaupés) eran los que más cocinan con leña. Ahora Vaupés, La Guajira y Casanare quedan al final, en parte por esa misma convención.
+- **R5:** la relación inversa se mantiene, con valores más bajos que en la primera entrega (de 709 a 109 kg frente a 1.000 a 243 kg).
+- **R1, R3′ y R6:** además, ahora usan el estrato verdadero (`P8520S1A1`, decisión D-07). La primera entrega usaba `P5010`, que son los cuartos donde duermen las personas; por eso la tendencia de R1 es distinta: con el estrato real el consumo sube con el estrato.
+- Los valores absolutos de R1 a R5 no son comparables con los de la primera entrega por las correcciones D-04, D-06, D-07 y D-08 (sección 24). R4 usa las personas de la muestra, sin factores de expansión de la ECV: describe la muestra, no la población nacional.
 
 **Parte B — Cadena de extremo a extremo (filas representativas).** Cada fila sigue el recorrido requisito, dato requerido, fuente, riesgo de calidad, regla, Expectation de Great Expectations, transformación, elemento del DW y visualización. Todas las reglas están en [`docs/quality_rules.md`](docs/quality_rules.md) y en `src/validation.py`. Respuesta del pipeline: **Critical** bloquea la tarea, **Warning** se registra y continúa (sección 17).
 
@@ -817,6 +845,7 @@ La tarjeta "hogares con clima emparejado" (98,3 %) y las visualizaciones de R6 y
 | R6, R7 | `departamento` (API IDEAM) | Estaciones sin departamento: no aportan a `dim_clima` | DQ14 (Critical, ≥ 99 %) | `ExpectColumnValuesToNotBeNull(departamento, mostly=0.99)` | Normalización del nombre y traducción a código DANE con `dane_departamentos.csv` | `dim_clima.codigo_departamento` | R6 y R7 |
 | R6, R7 | `minimo` y `maximo` de temperatura (API) | Fallas de sensor (el IDEAM no validó los valores) | DQ15 (Critical, ≥ 99,5 %) | `ExpectColumnValuesToBeBetween(-15, 50, mostly=0.995)` | Se excluyen filas fuera de rango; promedio por departamento ponderado por lecturas | `dim_clima.temp_media_c`, `piso_termico` | R6 y R7 |
 | R6, R7 | Cobertura de departamentos (API) | Departamentos sin estaciones dejan hogares sin clima | DQ17 (Warning, ≥ 30; decisión D-03) | `ExpectColumnUniqueValueCountToBeBetween(min_value=30)` | Hogares sin clima: `fk_clima` NULL y `clima_emparejado = 0` (D-02, Vaupés) | `fact_huella_carbono.clima_emparejado` | Tarjeta "hogares con clima" (98,3 %) |
+| R1, R3′, R6 | `P8520S1A1`, estrato para tarifa de energía (ECV vivienda) | Código fuera del diccionario DANE, o muy pocos hogares con estrato 1 a 6 | DQ05 (Warning) | `ExpectColumnValuesToBeInSet(P8520S1A1, [0–6, 8, 9], mostly=0.999)` y `ExpectColumnValuesToBeBetween(P8520S1A1, 1, 6, mostly=0.85)` | Códigos 0, 8, 9 y vacíos → "sin estrato" (0); estrato 1 a 6 se conserva (D-07) | `dim_ubicacion.estrato`, `dim_tarifas` | R1, R3′ y R6 |
 | R1, R6 | `P5018`, pago de energía (ECV servicios) | Muchos valores nulos: la imputación dominaría el KPI | DQ04 (Warning, ≥ 70 %) | `ExpectColumnValuesToNotBeNull(P5018, mostly=0.70)` | Imputación con la mediana del estrato, truncado al percentil 99 y kWh = pago ÷ tarifa (S1, S2) | `fact_huella_carbono.kwh_consumidos_estimados` | R1 y R6 |
 | R3′ | `P1077S15`, carro particular (ECV condiciones) | Código fuera de {1, 2} | DQ10 (Critical) | `ExpectColumnValuesToBeInSet(P1077S15, [1, 2])` | 1 → Sí, 2 → No | `dim_hogar.tiene_vehiculo` | R3′ (página 1) |
 | R7 | `P1077S11` aire acondicionado y `P1077S12` ventilador (ECV condiciones) | Código fuera de {1, 2} | DQ11 (Warning) | `ExpectColumnValuesToBeInSet(P1077S11 y P1077S12, [1, 2])` | 1 → Sí, 2 → No | `dim_hogar.bien_p1077s11`, `bien_p1077s12` | R7 (página 2) |
@@ -860,7 +889,11 @@ La tabla completa de reglas (DQ01 a DQ30) y los resultados de validación de cad
 - Los precios de combustible de cocina siguen siendo fijos (limitación de la primera entrega, no resuelta en esta).
 - **Leña (supuesto S9, decisión D-04):** la tabla de factores del proyecto marca la leña como carbono neutra ("no suma al total neto de CO₂, sí contabiliza CH₄ y N₂O"), y el IPCC (2006) respalda la convención: el CO₂ de la biomasa no se incluye en los totales. El pipeline lo aplica: el CO₂ de la leña se cuenta como 0 en la huella neta (`BIOMASS_CO2_NEUTRAL=1`, reversible con `0`). Esto **corrige la primera entrega**, que sumaba el factor completo (112.000 kg/TJ): el hallazgo original de R2 ("la leña emite 3 veces más") ya no se sostiene. Limitaciones: no se incluyen CH₄ ni N₂O (el IPCC da factores por defecto, 300 y 4 kg/TJ para leña residencial, pero la huella del proyecto se define como CO₂ y agregarlos exigiría aplicarlos a todos los combustibles; equivale a ≈8,4 kg de CH₄ y ≈0,11 kg de N₂O por hogar con leña y año), y la neutralidad supone cosecha sostenible, algo que la ECV no permite verificar.
 - **Factor de emisión eléctrica (supuesto S3, decisión D-06):** la primera entrega usaba 0,097 kg CO₂/kWh, un valor atribuido a XM cuyo origen no se pudo verificar. La UPME publica el factor del SIN para inventarios y huellas de carbono: 0,177 en 2023 y **0,220 en 2024**. Esta entrega usa **0,220**, el dato oficial más cercano al periodo de la ECV (agosto 2024 a noviembre 2025). Esto **corrige la primera entrega**: las emisiones eléctricas y las huellas totales son ≈2,3 veces mayores en valor absoluto, mientras que los kWh y las comparaciones porcentuales no cambian. El factor es un promedio anual constante (no se modela variación mensual).
-- **Efecto combinado de D-04 y D-06:** la huella media por hogar pasa de ≈1.213 kg/año (primera entrega) a ≈905 (−505 por la leña neutra y +196 por el factor eléctrico); un hogar con leña pasa de ≈3.253 a ≈245. Por eso los valores absolutos de R2 a R5 de la primera entrega no son comparables con los de esta (sección 22).
+- **Efecto combinado de D-04 y D-06:** la huella media por hogar pasa de ≈1.213 kg/año (primera entrega) a ≈905 (−505 por la leña neutra y +196 por el factor eléctrico) y, con las correcciones D-07 y D-08, a ≈859 (−46 kg más, casi todo en la emisión eléctrica: de 351 a 307); un hogar con leña pasa de ≈3.253 a ≈164 (huella total). Por eso los valores absolutos de R1 a R5 de la primera entrega no son comparables con los de esta (sección 22).
+- **Estrato (decisión D-07, supuesto S10):** la primera entrega usó `P5010` como "estrato". Según el diccionario del DANE esa variable es el número de cuartos donde duermen las personas del hogar; el estrato para tarifa de energía es `P8520S1A1` (capítulo Datos de la vivienda), con los códigos 0 (factura sin estrato o servicio ilegal), 8 (vivienda con planta eléctrica) y 9 (no sabe el estrato y no tiene factura). Esta entrega usa `P8520S1A1`. Los 10.060 hogares (11,6 %) sin estrato 1 a 6 se agrupan como "sin estrato" (valor 0 en la base): se usan en R2, R4, R5 y R7, no se interpretan en las vistas por estrato y, para estimar kWh, reciben la tarifa del estrato 1 como respaldo. Los hogares con planta eléctrica pueden pagar poco o nada por la red, así que su consumo estimado subestima el real.
+- **Pagos de varios meses (decisión D-08):** `P5018S1` y `P3163S1` indican a cuántos meses corresponde el pago. El 10,6 % de los pagos de energía informados cubre 2 meses o más; se divide entre los meses. Si el dato de meses falta o está fuera de 1 a 12, se supone 1 mes. El pago de energía puede incluir el alumbrado público si viene en la factura (nota del DANE), lo que sobreestima algo el consumo.
+- **Códigos 98 y 99 (supuesto S17):** en `P8540` el DANE define 98 como propano pagado con la administración o el arriendo (valor no separable) y deja 99 sin definir; en `P5018` y `P3163` el diccionario no los define, pero el siguiente valor más bajo es 1.000. Se tratan como dato no informado (233, 208 y 471 hogares).
+- **Combustible de cocina (supuesto S18):** el carbón de leña (`P8536` = 7, 428 hogares) se agrupa con la leña por ser biomasa; esa agrupación es una decisión del equipo, no del DANE. Los hogares que cocinan con electricidad, petróleo o derivados, carbón mineral o material de desecho, y los que no informan, no suman emisión de cocina.
 - **Supuestos sin fuente oficial.** Siguen sin respaldo documental el uso de tarifas fijas por estrato (S1), el precio del gas natural (S4), el precio del GLP (S5), el poder calorífico del gas natural (parte de S6) y el consumo de 150 kg de leña por mes (S7, el más fuerte porque no depende del gasto del hogar). Los subsidios de S2 tienen solo una fuente secundaria (prensa). Se declaran en [`docs/supuestos_y_trazabilidad.md`](docs/supuestos_y_trazabilidad.md). En cambio, los factores de emisión de combustibles (S8), el poder calorífico de leña y GLP (S6) y el factor eléctrico (S3) tienen fuente oficial.
 - **Solo CO₂.** La huella se mide en kg de CO₂, no en CO₂ equivalente: no incluye CH₄ ni N₂O.
 - **Muestra, no población.** Las cifras describen los 86.848 hogares de la muestra de la ECV. El pipeline no aplica factores de expansión, así que no son totales nacionales.

@@ -21,7 +21,7 @@ def _hogares():
     """Tres hogares del mismo estrato y con el mismo pago de energia; solo cambia el combustible."""
     return pd.DataFrame({
         "P5018": [46000, 46000, 46000],
-        "P5010": [1, 1, 1],
+        "ESTRATO": [1, 1, 1],
         "P8536": [6, 4, 2],            # 6 = lena, 4 = GLP, 2 = gas natural
         "P3163": [0, 0, 18000],        # gasto de gas natural
         "P8540": [0, 32000, 0],        # gasto de GLP / otros
