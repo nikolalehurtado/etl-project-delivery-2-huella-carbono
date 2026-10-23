@@ -166,9 +166,52 @@ GROUP BY u.estrato, c.piso_termico ORDER BY u.estrato, kwh_mes_promedio DESC;
 
 ## 7. Arquitectura del sistema
 
-![Arquitectura del sistema](docs/architecture.png)
+```mermaid
+flowchart TB
+  subgraph FUENTES["Fuentes de datos"]
+    ECV[("ECV 2025 · DANE<br/>4 capítulos CSV")]
+    API[("API del IDEAM · datos.gov.co<br/>temperatura del aire")]
+  end
 
-*(Fuente editable del diagrama: [`docs/architecture.dot`](docs/architecture.dot), se genera con Graphviz: `dot -Tpng docs/architecture.dot -o docs/architecture.png`.)*
+  subgraph AIRFLOW["Apache Airflow · DAG etl_huella_carbono · dependencias, reintentos, logs y monitoreo"]
+    direction TB
+    EP["extract_primary"] --> RAWE[/"raw ECV<br/>+ manifiesto"/] --> G1{{"Compuerta 1<br/>validate_primary_raw"}}
+    EA["extract_api<br/>ventanas de 7 días · 3 reintentos"] --> RAWA[/"raw API<br/>+ manifiesto"/] --> G2{{"Compuerta 2<br/>validate_api_raw"}}
+    G1 --> T["transform_and_clean_and_integrate<br/>integración por código DANE"]
+    G2 --> T
+    T --> PREP[/"6 tablas preparadas<br/>+ integration_report.json"/] --> G3{{"Compuerta 3<br/>validate_prepared"}}
+    G3 --> L["load_dimensional_dw<br/>transacción · conciliación · ROLLBACK"]
+  end
+
+  subgraph DW["Data Warehouse · MySQL 8"]
+    F[("fact_huella_carbono")]
+    D[("5 dimensiones")]
+    AUD[("etl_audit_log")]
+  end
+
+  subgraph BI["Consumo analítico"]
+    Q["Consultas SQL R1 a R7"] --> DASH["Dashboard en Power BI"]
+  end
+
+  ECV --> EP
+  API --> EA
+  L --> F
+  L --> D
+  L --> AUD
+  F --> Q
+  D --> Q
+
+  classDef gate fill:#fff3cd,stroke:#b8860b,color:#000
+  classDef store fill:#e8f1fb,stroke:#2f5d9e,color:#000
+  classDef task fill:#ffffff,stroke:#555,color:#000
+  class G1,G2,G3 gate
+  class ECV,API,RAWE,RAWA,PREP,F,D,AUD store
+  class EP,EA,T,L,Q,DASH task
+```
+
+*Cómo se lee:* las formas indican el tipo de elemento. Los cilindros y paralelogramos azules son datos (fuentes, archivos raw y preparados, tablas del DW); los hexágonos amarillos son las tres compuertas de validación; los rectángulos son tareas de Airflow. Cada flecha es una dependencia: una tarea solo corre si la anterior terminó bien.
+
+*Versión detallada con notas, como imagen:* [`docs/architecture.png`](docs/architecture.png) (fuente editable: [`docs/architecture.dot`](docs/architecture.dot), se genera con Graphviz: `dot -Tpng docs/architecture.dot -o docs/architecture.png`).
 
 **Cómo se lee.** El flujo va de arriba hacia abajo: dos fuentes independientes, cada una con su propia rama de extracción, almacenamiento raw y compuerta de validación; las dos ramas se unen en la transformación e integración; el resultado se valida otra vez antes de cargarse al Data Warehouse, y de ahí salen las consultas y el dashboard. Todo el recuadro azul lo orquesta Apache Airflow.
 
@@ -196,14 +239,14 @@ GROUP BY u.estrato, c.piso_termico ORDER BY u.estrato, kwh_mes_promedio DESC;
 
 | Elemento exigido | Dónde está en el diagrama |
 |---|---|
-| Fuente primaria y fuente API programática | Recuadro "Fuentes" |
+| Fuente primaria y fuente API programática | Recuadro "Fuentes de datos" |
 | Extracción o persistencia raw de cada rama | `extract_primary` → RAW ECV; `extract_api` → RAW API |
 | Compuertas de validación raw de ambas fuentes | Compuertas 1 y 2 |
 | Transformación e integración | `transform_and_clean_and_integrate` |
 | Validación de los datos preparados | Compuerta 3 |
-| Data Warehouse dimensional en MySQL | Recuadro "Data Warehouse" |
+| Data Warehouse dimensional en MySQL | Recuadro "Data Warehouse · MySQL 8" |
 | Consultas SQL, KPI y dashboard | Recuadro "Consumo analítico" |
-| Airflow: dependencias, reintentos, logs y monitoreo | Recuadro azul y la nota "Qué hace Airflow" |
+| Airflow: dependencias, reintentos, logs y monitoreo | Recuadro "Apache Airflow" (las flechas son las dependencias; `extract_api` muestra sus reintentos) y la tabla de componentes de esta sección |
 
 **Proceso de negocio y grano.** El proceso que se modela es la estimación anual de la huella de carbono residencial de un hogar. El grano de la tabla de hechos es **un registro por hogar encuestado** (`DIRECTORIO` + `SECUENCIA_P`).
 
@@ -302,15 +345,96 @@ La estrategia de integración une los microdatos de la ECV con los datos climát
 
 ## 13. Modelo dimensional refinado y justificación de cambios
 
-![Modelo Dimensional Refinado](docs/star_schema.png)
+```mermaid
+erDiagram
+  dim_hogar ||--o{ fact_huella_carbono : "fk_hogar"
+  dim_ubicacion ||--o{ fact_huella_carbono : "fk_ubicacion"
+  dim_clima |o--o{ fact_huella_carbono : "fk_clima (opcional)"
+  dim_combustibles |o--o{ fact_huella_carbono : "fk_combustible_cocina (opcional)"
+  dim_tarifas |o--o{ fact_huella_carbono : "fk_tarifa_energia (opcional)"
+
+  fact_huella_carbono {
+    int sk_fact PK
+    int fk_hogar FK
+    int fk_ubicacion FK
+    int fk_clima FK
+    int fk_combustible_cocina FK
+    int fk_tarifa_energia FK
+    tinyint clima_emparejado
+    decimal kwh_consumidos_estimados
+    decimal emisiones_energia_kg
+    decimal emisiones_coccion_kg
+    decimal huella_total_anual_kg
+  }
+  dim_hogar {
+    int sk_hogar PK
+    varchar directorio
+    varchar secuencia_p
+    int num_personas
+    varchar tiene_vehiculo
+    varchar bien_p1077s11
+    varchar bien_p1077s12
+  }
+  dim_ubicacion {
+    int sk_ubicacion PK
+    int codigo_departamento
+    varchar nombre_departamento
+    int estrato
+  }
+  dim_clima {
+    int sk_clima PK
+    int codigo_departamento
+    varchar nombre_departamento
+    int anio
+    decimal temp_media_c
+    decimal temp_min_c
+    decimal temp_max_c
+    int n_estaciones
+    int n_lecturas
+    varchar piso_termico
+  }
+  dim_combustibles {
+    int sk_combustible PK
+    varchar tipo_combustible
+    decimal factor_emision_kg_tj
+  }
+  dim_tarifas {
+    int sk_tarifa PK
+    int estrato_aplica
+    decimal costo_promedio_kwh
+  }
+```
+
+*Cómo se lee:* cada recuadro es una tabla con sus columnas; `PK` es la llave primaria y `FK` la llave foránea. Las líneas unen la tabla de hechos con cada dimensión (un hogar de la tabla de hechos apunta a una fila de cada dimensión). Las llaves del clima, el combustible y la tarifa pueden ser nulas: no todo hogar tiene clima emparejado, combustible de cocina ni tarifa.
+
+*Versión como imagen:* [`docs/star_schema.png`](docs/star_schema.png) (fuente: [`docs/star_schema.dot`](docs/star_schema.dot)). El modelo de la primera entrega está en [`docs/evidence/star_schema.png`](docs/evidence/star_schema.png).
+
+**Tablas del modelo:**
+
+| Tabla | Tipo | Grano (una fila es...) | Llave | Filas | Fuente |
+|---|---|---|---|---|---|
+| `fact_huella_carbono` | Hechos | un hogar encuestado | `sk_fact` | 86.848 | ECV 2025, calculada en la transformación |
+| `dim_hogar` | Dimensión | un hogar | `sk_hogar` | 86.848 | ECV (características y condiciones) |
+| `dim_ubicacion` | Dimensión | un departamento y un estrato | `sk_ubicacion` | 193 | ECV (vivienda y servicios) |
+| `dim_clima` | Dimensión (**nueva**) | un departamento | `sk_clima` | 32 | **API del IDEAM** |
+| `dim_combustibles` | Dimensión | un combustible de cocina | `sk_combustible` | 3 | `data/reference/dim_combustibles.csv` |
+| `dim_tarifas` | Dimensión | un estrato | `sk_tarifa` | 6 | `data/reference/dim_tarifas.csv` |
+| `etl_audit_log` | Auditoría (fuera del modelo estrella) | una tabla cargada en una corrida | — | 6 por corrida | pipeline |
 
 **Grano del modelo:** 
 Una fila en la tabla de hechos (`fact_huella_carbono`) representa la estimación del consumo eléctrico y la huella de carbono anual de **un (1) hogar encuestado** en la ECV 2025.
 
-**Bitácora de cambios frente a la Fase 1:**
-Para poder dar respuesta a los nuevos requerimientos analíticos solicitados para el ODS 12 (R6 y R7), el esquema estrella de la primera entrega fue refinado mediante:
-1.  **Creación de `dim_clima`:** Una nueva dimensión que almacena la temperatura media departamental (`temp_media_c`) y la categorización cualitativa del clima (`piso_termico`: Cálido, Templado, Frío).
-2.  **Actualización de `fact_huella_carbono`:** Se agregó la llave foránea `fk_clima` a la tabla central para vincular cada hogar con las condiciones climáticas de su ubicación.
+**Bitácora de cambios frente a la Fase 1.** Para responder R6 y R7, el esquema estrella de la primera entrega se refinó así (comparación hecha contra [`docs/fase1_referencia/create_dw.sql`](docs/fase1_referencia/create_dw.sql)):
+
+| Cambio | Dónde | Por qué |
+|---|---|---|
+| **Nueva dimensión `dim_clima`** (temperatura media, mínima y máxima, estaciones, lecturas y `piso_termico`) | Modelo | Es el lugar donde entra la API del IDEAM: sin ella no hay clima por departamento y R6 y R7 no tienen respuesta |
+| Nueva llave `fk_clima` (puede ser nula) | `fact_huella_carbono` | Une cada hogar con el clima de su departamento. Nula para Vaupés, que no tiene datos (D-02) |
+| Nueva columna `clima_emparejado` (0 o 1) | `fact_huella_carbono` | Permite excluir de R6 y R7 a los hogares sin clima sin perderlos para R1 a R5 |
+| Nuevas columnas `bien_p1077s11` (aire acondicionado) y `bien_p1077s12` (ventilador) | `dim_hogar` | Datos de R7: porcentaje de hogares con equipo de climatización |
+| Medidas en `DECIMAL` en vez de `REAL` | `fact_huella_carbono` y dimensiones | Evita errores de redondeo de punto flotante al sumar y promediar emisiones (decisión de diseño) |
+| Restricciones `ON DELETE RESTRICT`, valores por defecto e índices | Todas | Protegen la integridad referencial y aceleran las consultas por estrato, clima y combustible |
+| Nueva tabla `etl_audit_log` | Fuera del modelo estrella | Registra cada carga (tabla, filas, estado), como respaldo de la conciliación y del `ROLLBACK` (sección 20) |
 
 **Validación de Requisitos (R1 - R7):**
 El modelo actualizado mantiene plena compatibilidad con los requerimientos originales, permitiendo cruzar las emisiones con el estrato (`dim_ubicacion`), combustible (`dim_combustibles`) y características del hogar (`dim_hogar`). Además, el nuevo modelo valida con éxito la expansión analítica al permitir cruzar el consumo eléctrico y las emisiones contra la nueva `dim_clima` para responder a las preguntas R6 y R7.
@@ -377,11 +501,28 @@ SELECT COUNT(*) AS hechos_con_clima_inexistente FROM fact_huella_carbono f
 
 ## 16. Diseño del DAG de Airflow e interfaces de las tareas
 
-```
-extract_primary -> validate_primary_raw ----\
-                                             >-> transform_and_clean_and_integrate -> validate_prepared -> load_dimensional_dw
-extract_api     -> validate_api_raw --------/
-```
+**Lo que muestra Airflow.** Vista de grafo del DAG `etl_huella_carbono` en la interfaz web de Airflow 3.1.8:
+
+![Vista de grafo del DAG en Airflow](docs/evidence/airflow_dag_grafo.png)
+
+*Qué demuestra:* el DAG tiene **7 tareas** en dos ramas independientes que se unen. A la izquierda, `extract_primary` con `validate_primary_raw` y `extract_api` con `validate_api_raw`; en el centro, `transform_and_clean_and_integrate`; a la derecha, `validate_prepared` y `load_dimensional_dw`.
+
+*Cómo leer las flechas.* Hay dos tipos de dependencia, y ambas se ven en el grafo:
+- **Dependencias de datos.** En el código, cada tarea recibe como argumento lo que devolvió otra. `validate_primary_raw` recibe la salida de `extract_primary`, `validate_api_raw` la de `extract_api`, y la transformación recibe las dos extracciones. Por eso salen líneas directas desde `extract_primary` y `extract_api` hacia la transformación, y otra desde la transformación hacia `load_dimensional_dw`, que recibe las tablas preparadas.
+- **Dependencias de compuerta, escritas a propósito.** `[validate_primary_raw, validate_api_raw] >> transform_and_clean_and_integrate` y `validate_prepared >> load_dimensional_dw`. Hacen que la transformación solo corra si **ambas** compuertas raw aprobaron, y que nada se cargue si la compuerta de datos preparados falla, aunque la carga ya tenga sus datos listos.
+
+**Configuración del DAG** (en [`dags/etl_huella_carbono_dag.py`](dags/etl_huella_carbono_dag.py)):
+
+| Parámetro | Valor | Por qué |
+|---|---|---|
+| `schedule` | ninguno (ejecución manual) | Cada corrida se dispara y se inspecciona a mano |
+| `max_active_runs` | 1 | Dos cargas simultáneas al DW no son seguras |
+| `catchup` | falso | No se recuperan fechas pasadas |
+| `execution_timeout` | 20 minutos por tarea (la API tiene 60) | Una tarea colgada no bloquea el pipeline |
+| Parámetro `ecv_source` | `raw` (datos reales) o `test` (lote dañado de la Prueba B) | Permite la falla controlada sin tocar el código |
+| Reintentos | Ninguno en validaciones, extracción local y transformación; 3 en `extract_api` y 3 en la carga | Solo se reintenta lo transitorio (sección 17) |
+
+**Interfaces de las tareas:**
 
 | Tarea | Entrada | Salida | Identidad del lote | Señal de falla | Re-ejecución |
 |---|---|---|---|---|---|
