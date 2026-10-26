@@ -781,7 +781,13 @@ Para reproducir la prueba: crear el trigger con el comando de arriba, disparar e
 ```
 
 ## 21. Dashboard y salidas analíticas
-El producto analítico es un informe de **Power BI Desktop** (`dashboard/huella_carbono.pbix`) conectado al Data Warehouse MySQL (`localhost:3307`, base `huella_carbono_dw_v2`). Importa las seis tablas del esquema estrella con sus relaciones; **no lee CSV, respuestas crudas de la API ni archivos intermedios**. Los pasos de conexión están en [`docs/bi_dashboard_guide.md`](docs/bi_dashboard_guide.md).
+El producto analítico es un informe de **Power BI Desktop** (`dashboard/dashboard_huella_carbono.pbix`) conectado al Data Warehouse MySQL (`localhost:3307`, base `huella_carbono_dw_v2`). Importa las seis tablas del esquema estrella con sus relaciones; **no lee CSV, respuestas crudas de la API ni archivos intermedios**. Los pasos de conexión están en [`docs/bi_dashboard_guide.md`](docs/bi_dashboard_guide.md). El [dashboard publicado en Power BI](https://app.powerbi.com/view?r=eyJrIjoiZmVhYWMzZGMtNGI1ZS00N2Q0LWJlMTAtMTYzM2YyMTAwMzAzIiwidCI6IjY5M2NiZWEwLTRlZjktNDI1NC04OTc3LTc2ZTA1Y2I1ZjU1NiIsImMiOjR9) también está disponible en la web.
+
+Todas las gráficas del informe deben ser **visuales nativos de Power BI**. No usar visuales de Python ni generar las gráficas con scripts de Python. Para conectarse a MySQL, obtener `MYSQL_USER` y `MYSQL_PASSWORD` del archivo local `.env`; **no pedir, pegar ni compartir estas credenciales en chats**.
+
+Las cuatro evidencias requeridas son `docs/evidence/esquema_powerbi.PNG` (nombre de archivo: `esquema_powerbi.PNG`), `docs/evidence/dashboard_conexion_mysql.png`, `docs/evidence/dashboard_p1_huella_residencial.png` y `docs/evidence/dashboard_p2_api_clima.png`.
+
+![Esquema del modelo de Power BI](docs/evidence/esquema_powerbi.PNG)
 
 ![Conexión de Power BI al Data Warehouse MySQL](docs/evidence/dashboard_conexion_mysql.png)
 
@@ -815,7 +821,7 @@ El producto analítico es un informe de **Power BI Desktop** (`dashboard/huella_
 
 La tarjeta "hogares con clima emparejado" (98,3 %) y las visualizaciones de R6 y R7 son el **KPI y las gráficas que demuestran el valor de integrar la API**: dependen por completo de `dim_clima`, que solo existe por la fuente del IDEAM.
 
-*Alternativa sin Power BI:* `python scripts/dashboard_bi.py` genera una página HTML con los mismos cálculos directamente desde MySQL. Sirve para revisar rápido, pero **la solución evaluada es el informe de Power BI**.
+*Vista previa alternativa sin Power BI:* `python scripts/dashboard_bi.py` genera una página HTML con los mismos cálculos directamente desde MySQL. Sirve solo para revisar resultados; no sustituye el informe evaluado ni sus visuales nativos de Power BI.
 
 ## 22. Trazabilidad requisito → KPI de extremo a extremo
 **Parte A — Requisito → consulta → resultado → visualización.** Todos los números salen del Data Warehouse tras la corrida final (sección 18). Las consultas están en [`sql/analytical_queries.sql`](sql/analytical_queries.sql).
@@ -872,7 +878,7 @@ La tabla completa de reglas (DQ01 a DQ30) y los resultados de validación de cad
    "SELECT COUNT(*) FROM fact_huella_carbono;" | docker compose exec -T mysql-dw sh -c 'mysql -u $MYSQL_USER -p$MYSQL_PASSWORD $MYSQL_DATABASE'
    ```
    Debe dar 86.848.
-7. Dashboard: abrir `dashboard/huella_carbono.pbix` en Power BI Desktop (necesita el conector de MySQL, *MySQL Connector/NET*) o crearlo siguiendo [`docs/bi_dashboard_guide.md`](docs/bi_dashboard_guide.md). Servidor `localhost:3307`, base `huella_carbono_dw_v2`, usuario y contraseña del `.env`.
+7. Dashboard: abrir `dashboard/dashboard_huella_carbono.pbix` en Power BI Desktop (necesita el conector de MySQL, *MySQL Connector/NET*) o crearlo siguiendo [`docs/bi_dashboard_guide.md`](docs/bi_dashboard_guide.md). Servidor `localhost:3307`, base `huella_carbono_dw_v2`; obtener `MYSQL_USER` y `MYSQL_PASSWORD` del `.env` local y no compartirlos en chats. Usar visuales nativos de Power BI, sin visuales de Python.
 8. Opcional, antes de correr: `python scripts/verificar_cobertura_api.py` para revisar la cobertura de estaciones del IDEAM.
 
 *Configuración opcional.* `BIOMASS_CO2_NEUTRAL=0` en `.env` restaura el factor completo de CO₂ para la leña (decisión D-04). Con el valor por defecto (`1`) la leña cuenta como carbono neutra.

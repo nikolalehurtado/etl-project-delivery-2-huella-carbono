@@ -10,8 +10,10 @@ Esta guía detalla el procedimiento para conectar herramientas de Business Intel
 * **Host:** `localhost` (o `127.0.0.1`)
 * **Puerto:** `3307` (mapeado en `docker-compose.yaml` al puerto interno 3306)
 * **Base de datos:** `huella_carbono_dw_v2`
-* **Usuario:** Variable `MYSQL_USER` de su archivo `.env`
-* **Contraseña:** Variable `MYSQL_PASSWORD` de su archivo `.env`
+* **Usuario:** Variable `MYSQL_USER` del archivo local `.env`
+* **Contraseña:** Variable `MYSQL_PASSWORD` del archivo local `.env`
+
+Obtenga ambas credenciales directamente del `.env` de su entorno. No las solicite, pegue ni comparta en chats.
 
 ---
 
@@ -36,6 +38,8 @@ Esta guía detalla el procedimiento para conectar herramientas de Business Intel
    * `fact_huella_carbono.fk_combustible_cocina` $\rightarrow$ `dim_combustibles.sk_combustible` (1:*).
    * `fact_huella_carbono.fk_tarifa_energia` $\rightarrow$ `dim_tarifas.sk_tarifa` (1:*).
 
+Construya las gráficas con los **visuales nativos de Power BI**. No use visuales de Python ni gráficas generadas por scripts de Python.
+
 ---
 
 ## 3. Matriz de Visualizaciones Recomendadas
@@ -54,10 +58,11 @@ Esta guía detalla el procedimiento para conectar herramientas de Business Intel
 
 ## 3.1 Páginas del informe y capturas para la evidencia
 
+* **Esquema del modelo:** `docs/evidence/esquema_powerbi.PNG` (nombre de archivo: `esquema_powerbi.PNG`).
 * **Página 1 — Huella residencial (R1 a R5):** tarjetas de hogares, huella media y emisión eléctrica media; gráficas de R1 a R5; filtros de estrato y departamento. Captura: `docs/evidence/dashboard_p1_huella_residencial.png`.
 * **Página 2 — Valor de la API (R6 y R7):** tarjetas de hogares con clima emparejado, kWh cálido contra frío y diferencia de CO₂; gráficas de R6 y R7; filtros de departamento y piso térmico. Captura: `docs/evidence/dashboard_p2_api_clima.png`.
 * **Conexión:** captura del servidor `localhost:3307` y la base `huella_carbono_dw_v2` con las seis tablas seleccionadas: `docs/evidence/dashboard_conexion_mysql.png`.
-* Guardar el informe como `dashboard/huella_carbono.pbix`.
+* Guardar el informe como `dashboard/dashboard_huella_carbono.pbix`.
 
 ## 4. Visualización Alternativa Autónoma (HTML/Web)
 
