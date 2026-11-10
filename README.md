@@ -904,6 +904,22 @@ La tabla completa de reglas (DQ01 a DQ30) y los resultados de validación de cad
 - **Solo CO₂.** La huella se mide en kg de CO₂, no en CO₂ equivalente: no incluye CH₄ ni N₂O.
 - **Muestra, no población.** Las cifras describen los 86.848 hogares de la muestra de la ECV. El pipeline no aplica factores de expansión, así que no son totales nacionales.
 
+
+##  Fase 3: Procesamiento en Tiempo Real (Streaming con Apache Kafka)
+
+Como parte de la evolución del proyecto hacia una arquitectura orientada a eventos, en esta tercera fase se incorporó **Apache Kafka** y **Zookeeper** para el procesamiento y transmisión en tiempo real de los Key Performance Indicators (KPIs) extraídos del Data Warehouse (`mysql-dw`).
+
+### 📦 Componentes Implementados
+- **Broker de Kafka y Zookeeper:** Integrados en la infraestructura mediante contenedores Docker (`docker-compose.yaml`), operando en el puerto `9092`.
+- **Productor (`kafka/producer_metrics.py`):** Script encargado de conectarse al Data Warehouse en MySQL, calcular métricas consolidadas (huella de carbono promedio, consumo eléctrico y emisiones de cocción) y transmitirlas continuamente en formato JSON hacia un *topic* dedicado (`huella-metrics-topic`).
+- **Consumidor (`kafka/consumer_metrics.py`):** Script suscrito al canal de streaming que procesa y visualiza en tiempo real las métricas transmitidas.
+
+### ⚙️ Cómo ejecutar el streaming en vivo
+
+1. Asegúrarse de que todos los servicios de Docker (incluyendo Kafka y Zookeeper) estén activos:
+   ```bash
+   docker compose up -d
+
 ## 25. Integrantes y responsabilidades
 
 | Integrante | Rol |
