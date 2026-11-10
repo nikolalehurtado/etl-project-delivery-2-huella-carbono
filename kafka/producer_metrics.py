@@ -1,6 +1,7 @@
 import time
 import json
 import os
+from decimal import Decimal
 from kafka import KafkaProducer
 import pymysql
 from dotenv import load_dotenv
@@ -47,6 +48,16 @@ def fetch_metrics():
     finally:
         connection.close()
 
+def convert_decimals(obj):
+    """Convierte objetos Decimal a float para que sean compatibles con JSON"""
+    if isinstance(obj, list):
+        return [convert_decimals(item) for item in obj]
+    elif isinstance(obj, dict):
+        return {k: convert_decimals(v) for k, v in obj.items()}
+    elif isinstance(obj, Decimal):
+        return float(obj)
+    return obj
+
 def run_producer():
     print(f"Conectando al broker de Kafka en {KAFKA_BROKER}...")
     producer = KafkaProducer(
@@ -64,9 +75,12 @@ def run_producer():
                 "metrics": metrics
             }
             
-            producer.send(KAFKA_TOPIC, value=payload)
+            # Limpiar los Decimal antes de enviarlos a JSON/Kafka
+            clean_payload = convert_decimals(payload)
+            
+            producer.send(KAFKA_TOPIC, value=clean_payload)
             producer.flush()
-            print(f"[Enviado] -> {payload}")
+            print(f"[Enviado] -> {clean_payload}")
             
             # Esperar 5 segundos antes de la siguiente transmisión
             time.sleep(5)
